@@ -8,14 +8,14 @@
 #
 #  Tests:
 #    1. version()           — basic plugin load
-#    2. kvSet()             — store a value
-#    3. kvGet()             — retrieve and assert value
-#    4. kvSet() second key  — store second value
-#    5. kvList()            — list keys, assert both present
-#    6. kvRemove()          — remove first key
-#    7. kvGet() after remove — assert empty
-#    8. kvClear()           — clear namespace
-#    9. kvList() after clear — assert empty
+#    2. set()             — store a value
+#    3. get()             — retrieve and assert value
+#    4. set() second key  — store second value
+#    5. list()            — list keys, assert both present
+#    6. remove()          — remove first key
+#    7. get() after remove — assert empty
+#    8. clear()           — clear namespace
+#    9. list() after clear — assert empty
 #   10. Namespace isolation — key in ns "a" not visible in ns "b"
 #
 #  Prerequisites:
@@ -111,55 +111,55 @@ else
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 2: kvSet() — store a value ─────────────────────────────────────────
+# ── Test 2: set() — store a value ─────────────────────────────────────────
 
-banner "Test 2: kv_module.kvSet(\"test_ns\", \"key1\", \"hello\")"
+banner "Test 2: kv_module.set(\"test_ns\", \"key1\", \"hello\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvSet("test_ns", "key1", "hello")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("test_ns", "key1", "hello")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "kvSet(test_ns, key1, hello)"
+    pass "set(test_ns, key1, hello)"
 else
-    fail "kvSet(test_ns, key1, hello)" "unexpected output"
+    fail "set(test_ns, key1, hello)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 3: kvGet() — retrieve and assert ───────────────────────────────────
+# ── Test 3: get() — retrieve and assert ───────────────────────────────────
 
-banner "Test 3: kv_module.kvGet(\"test_ns\", \"key1\") — expect \"hello\""
+banner "Test 3: kv_module.get(\"test_ns\", \"key1\") — expect \"hello\""
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvGet("test_ns", "key1")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("test_ns", "key1")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
     if echo "$RESULT" | grep -q "hello"; then
-        pass "kvGet(test_ns, key1) = hello"
+        pass "get(test_ns, key1) = hello"
     else
-        fail "kvGet(test_ns, key1)" "expected 'hello', got: $RESULT"
+        fail "get(test_ns, key1)" "expected 'hello', got: $RESULT"
     fi
 else
-    fail "kvGet(test_ns, key1)" "unexpected output"
+    fail "get(test_ns, key1)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 4: kvSet() — store second value ────────────────────────────────────
+# ── Test 4: set() — store second value ────────────────────────────────────
 
-banner "Test 4: kv_module.kvSet(\"test_ns\", \"key2\", \"world\")"
+banner "Test 4: kv_module.set(\"test_ns\", \"key2\", \"world\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvSet("test_ns", "key2", "world")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("test_ns", "key2", "world")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "kvSet(test_ns, key2, world)"
+    pass "set(test_ns, key2, world)"
 else
-    fail "kvSet(test_ns, key2, world)" "unexpected output"
+    fail "set(test_ns, key2, world)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 5: kvList() — list all keys ────────────────────────────────────────
+# ── Test 5: list() — list all keys ────────────────────────────────────────
 
-banner "Test 5: kv_module.kvList(\"test_ns\", \"\") — expect key1 and key2"
+banner "Test 5: kv_module.list(\"test_ns\", \"\") — expect key1 and key2"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvList("test_ns", "")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.list("test_ns", "")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
@@ -167,77 +167,77 @@ if echo "$OUTPUT" | grep -q "Method call successful"; then
     echo "$RESULT" | grep -q "key1" && HAS_KEY1=true
     echo "$RESULT" | grep -q "key2" && HAS_KEY2=true
     if $HAS_KEY1 && $HAS_KEY2; then
-        pass "kvList(test_ns) contains key1 and key2"
+        pass "list(test_ns) contains key1 and key2"
     else
-        fail "kvList(test_ns)" "expected key1 and key2, got: $RESULT"
+        fail "list(test_ns)" "expected key1 and key2, got: $RESULT"
     fi
     info "Result: $RESULT"
 else
-    fail "kvList(test_ns)" "unexpected output"
+    fail "list(test_ns)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 6: kvRemove() — remove first key ───────────────────────────────────
+# ── Test 6: remove() — remove first key ───────────────────────────────────
 
-banner "Test 6: kv_module.kvRemove(\"test_ns\", \"key1\")"
+banner "Test 6: kv_module.remove(\"test_ns\", \"key1\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvRemove("test_ns", "key1")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.remove("test_ns", "key1")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "kvRemove(test_ns, key1)"
+    pass "remove(test_ns, key1)"
 else
-    fail "kvRemove(test_ns, key1)" "unexpected output"
+    fail "remove(test_ns, key1)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 7: kvGet() after remove — assert empty ─────────────────────────────
+# ── Test 7: get() after remove — assert empty ─────────────────────────────
 
-banner "Test 7: kv_module.kvGet(\"test_ns\", \"key1\") — expect empty after remove"
+banner "Test 7: kv_module.get(\"test_ns\", \"key1\") — expect empty after remove"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvGet("test_ns", "key1")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("test_ns", "key1")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
     # After remove, result should be empty (empty QByteArray)
     if [[ -z "$RESULT" ]] || echo "$RESULT" | grep -qE '^(\s*|""|null)$'; then
-        pass "kvGet(test_ns, key1) = empty after remove"
+        pass "get(test_ns, key1) = empty after remove"
     else
-        fail "kvGet(test_ns, key1)" "expected empty, got: $RESULT"
+        fail "get(test_ns, key1)" "expected empty, got: $RESULT"
     fi
 else
-    fail "kvGet(test_ns, key1)" "unexpected output"
+    fail "get(test_ns, key1)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 8: kvClear() — clear namespace ──────────────────────────────────────
+# ── Test 8: clear() — clear namespace ──────────────────────────────────────
 
-banner "Test 8: kv_module.kvClear(\"test_ns\")"
+banner "Test 8: kv_module.clear(\"test_ns\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvClear("test_ns")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.clear("test_ns")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "kvClear(test_ns)"
+    pass "clear(test_ns)"
 else
-    fail "kvClear(test_ns)" "unexpected output"
+    fail "clear(test_ns)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
-# ── Test 9: kvList() after clear — assert empty ─────────────────────────────
+# ── Test 9: list() after clear — assert empty ─────────────────────────────
 
-banner "Test 9: kv_module.kvList(\"test_ns\", \"\") — expect empty after clear"
+banner "Test 9: kv_module.list(\"test_ns\", \"\") — expect empty after clear"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvList("test_ns", "")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.list("test_ns", "")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
     # After clear, list should return empty (no keys)
     if [[ -z "$RESULT" ]] || echo "$RESULT" | grep -qE '^(\s*|\[\s*\]|\(\s*\))$'; then
-        pass "kvList(test_ns) = empty after clear"
+        pass "list(test_ns) = empty after clear"
     else
-        fail "kvList(test_ns)" "expected empty, got: $RESULT"
+        fail "list(test_ns)" "expected empty, got: $RESULT"
     fi
 else
-    fail "kvList(test_ns)" "unexpected output"
+    fail "list(test_ns)" "unexpected output"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
 fi
 
@@ -246,28 +246,28 @@ fi
 banner "Test 10: Namespace isolation — key in ns \"a\" not visible in ns \"b\""
 
 # Set a key in namespace "a"
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvSet("ns_a", "secret", "hidden")')
+OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("ns_a", "secret", "hidden")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "kvSet(ns_a, secret, hidden)"
+    pass "set(ns_a, secret, hidden)"
 
     # Try to read it from namespace "b" — should be empty
-    OUTPUT=$(logoscore_call "kv_module" 'kv_module.kvGet("ns_b", "secret")')
+    OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("ns_b", "secret")')
 
     if echo "$OUTPUT" | grep -q "Method call successful"; then
         RESULT=$(extract_result "$OUTPUT")
         if [[ -z "$RESULT" ]] || echo "$RESULT" | grep -qE '^(\s*|""|null)$'; then
-            pass "kvGet(ns_b, secret) = empty (namespace isolation confirmed)"
+            pass "get(ns_b, secret) = empty (namespace isolation confirmed)"
         else
             fail "namespace isolation" "key from ns_a visible in ns_b: $RESULT"
         fi
     else
-        fail "kvGet(ns_b, secret)" "unexpected output"
+        fail "get(ns_b, secret)" "unexpected output"
         echo "$OUTPUT" | tail -5 | sed 's/^/      /'
     fi
 
     # Cleanup: clear namespace "a"
-    logoscore_call "kv_module" 'kv_module.kvClear("ns_a")' >/dev/null 2>&1
+    logoscore_call "kv_module" 'kv_module.clear("ns_a")' >/dev/null 2>&1
 else
     fail "namespace isolation setup" "could not set key in ns_a"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'

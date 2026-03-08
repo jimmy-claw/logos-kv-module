@@ -37,17 +37,17 @@ public:
 #endif
 
     // IKvModule operations
-    Q_INVOKABLE void kvSet(const QString& ns, const QString& key, const QString& value) override;
-    Q_INVOKABLE QString kvGet(const QString& ns, const QString& key) override;
-    Q_INVOKABLE void kvRemove(const QString& ns, const QString& key) override;
-    Q_INVOKABLE QString kvList(const QString& ns, const QString& prefix) override;
-    Q_INVOKABLE QString kvListAll(const QString& ns) override;
-    Q_INVOKABLE void kvClear(const QString& ns) override;
+    Q_INVOKABLE void set(const QString& ns, const QString& key, const QString& value) override;
+    Q_INVOKABLE QString get(const QString& ns, const QString& key) override;
+    Q_INVOKABLE void remove(const QString& ns, const QString& key) override;
+    Q_INVOKABLE QString list(const QString& ns, const QString& prefix) override;
+    Q_INVOKABLE QString listAll(const QString& ns) override;
+    Q_INVOKABLE void clear(const QString& ns) override;
 
     void setDataDir(const QString &path);
 
 signals:
-    void kvChanged(const QString& ns, const QString& key);
+    void changed(const QString& ns, const QString& key);
 
 private:
     KvBackend &backendForNamespace(const std::string &ns);
