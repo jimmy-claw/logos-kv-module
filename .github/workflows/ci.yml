@@ -81,3 +81,16 @@ jobs:
 
       - name: Build
         run: cmake --build build-plugin
+
+  e2e-nix:
+    name: E2E Tests (Nix)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v24
+        with:
+          accept-flake-config: true
+
+      - name: Run E2E tests
+        run: nix build .#test --print-build-logs
