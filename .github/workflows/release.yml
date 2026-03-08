@@ -1,0 +1,106 @@
+name: Auto Release (Weekly)
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday 9am UTC
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  release:
+    name: Auto Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0')
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $TAG"
+
+      - name: Check for commits since last tag
+        id: check_commits
+        run: |
+          TAG=${{ steps.latest_tag.outputs.tag }}
+          COUNT=$(git rev-list ${TAG}..HEAD --count 2>/dev/null || git rev-list HEAD --count)
+          echo "commits=$COUNT" >> $GITHUB_OUTPUT
+          echo "Commits since $TAG: $COUNT"
+
+      - name: Bump patch version
+        id: new_version
+        if: steps.check_commits.outputs.commits != '0'
+        run: |
+          TAG=${{ steps.latest_tag.outputs.tag }}
+          VERSION=${TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "New tag: $NEW_TAG"
+
+      - name: Generate changelog entry
+        id: changelog
+        if: steps.check_commits.outputs.commits != '0'
+        run: |
+          TAG=${{ steps.latest_tag.outputs.tag }}
+          NEW_TAG=${{ steps.new_version.outputs.tag }}
+          DATE=$(date +%Y-%m-%d)
+          LOG=$(git log ${TAG}..HEAD --oneline --no-merges | head -30 | sed 's/^/- /')
+          
+          ENTRY="## [$NEW_TAG] - $DATE\n\n$LOG\n"
+          echo "entry<<EOF" >> $GITHUB_OUTPUT
+          printf "$ENTRY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Also save for CHANGELOG update
+          printf "$ENTRY" > /tmp/new_entry.md
+
+      - name: Update CHANGELOG.md
+        if: steps.check_commits.outputs.commits != '0'
+        run: |
+          NEW_TAG=${{ steps.new_version.outputs.tag }}
+          DATE=$(date +%Y-%m-%d)
+
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to logos-kv-module are documented here." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+
+          # Insert new entry after the header
+          HEAD=$(head -4 CHANGELOG.md)
+          TAIL=$(tail -n +5 CHANGELOG.md)
+          {
+            echo "$HEAD"
+            echo ""
+            cat /tmp/new_entry.md
+            echo "$TAIL"
+          } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "chore: update CHANGELOG for $NEW_TAG"
+          git push
+
+      - name: Create release
+        if: steps.check_commits.outputs.commits != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_TAG=${{ steps.new_version.outputs.tag }}
+          git tag $NEW_TAG
+          git push origin $NEW_TAG
+          gh release create $NEW_TAG             --title "$NEW_TAG"             --notes-file /tmp/new_entry.md             --latest
+
+      - name: No release needed
+        if: steps.check_commits.outputs.commits == '0'
+        run: echo "No commits since last tag — skipping release."
