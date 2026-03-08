@@ -5,12 +5,28 @@
 #include <filesystem>
 
 KvPlugin::KvPlugin(QObject *parent)
-    : KvInterface(parent) {}
+    : QObject(parent) {}
+
+// ── Logos Core lifecycle ─────────────────────────────────────────────────────
+
+void KvPlugin::initLogos(LogosAPI* logosAPIInstance) {
+    logosAPI = logosAPIInstance;
+
+    if (logosAPI) {
+        const QString dirProp = logosAPI->property("kvDataDir").toString();
+        if (!dirProp.isEmpty())
+            setDataDir(dirProp);
+    }
+}
+
+// ── Configuration ────────────────────────────────────────────────────────────
 
 void KvPlugin::setDataDir(const QString &path) {
     data_dir_ = path;
     use_file_backend_ = !path.isEmpty();
 }
+
+// ── Backend management ───────────────────────────────────────────────────────
 
 KvBackend &KvPlugin::backendForNamespace(const std::string &ns) {
     std::lock_guard lock(backends_mutex_);
@@ -31,26 +47,28 @@ KvBackend &KvPlugin::backendForNamespace(const std::string &ns) {
     return ref;
 }
 
-void KvPlugin::set(QString ns, QString key, QByteArray value) {
+// ── IKvModule operations ─────────────────────────────────────────────────────
+
+void KvPlugin::kvSet(const QString& ns, const QString& key, const QByteArray& value) {
     auto nsStd = ns.toStdString();
     auto keyStd = key.toStdString();
     backendForNamespace(nsStd).set(keyStd, std::string(value.constData(), value.size()));
-    emit changed(ns, key);
+    emit kvChanged(ns, key);
 }
 
-QByteArray KvPlugin::get(QString ns, QString key) {
+QByteArray KvPlugin::kvGet(const QString& ns, const QString& key) {
     auto result = backendForNamespace(ns.toStdString()).get(key.toStdString());
     if (!result)
         return {};
     return QByteArray::fromStdString(*result);
 }
 
-void KvPlugin::remove(QString ns, QString key) {
+void KvPlugin::kvRemove(const QString& ns, const QString& key) {
     backendForNamespace(ns.toStdString()).remove(key.toStdString());
-    emit changed(ns, key);
+    emit kvChanged(ns, key);
 }
 
-QStringList KvPlugin::list(QString ns, QString prefix) {
+QStringList KvPlugin::kvList(const QString& ns, const QString& prefix) {
     auto keys = backendForNamespace(ns.toStdString()).list(prefix.toStdString());
     QStringList result;
     result.reserve(static_cast<int>(keys.size()));
@@ -59,7 +77,7 @@ QStringList KvPlugin::list(QString ns, QString prefix) {
     return result;
 }
 
-void KvPlugin::clear(QString ns) {
+void KvPlugin::kvClear(const QString& ns) {
     backendForNamespace(ns.toStdString()).clear();
-    emit changed(ns, QString());
+    emit kvChanged(ns, QString());
 }
