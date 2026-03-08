@@ -27,6 +27,9 @@ pkgs.stdenv.mkDerivation {
     "-DBUILD_TESTS=ON"
     "-DWITH_ROCKSDB=ON"
     "-DWITH_SQLITE=ON"
+    # Nix's rocksdb cmake config has broken IMPORTED targets;
+    # disable find_package(RocksDB) so the fallback to pkg-config is used.
+    "-DCMAKE_DISABLE_FIND_PACKAGE_RocksDB=ON"
   ];
 
   dontWrapQtApps = true;
