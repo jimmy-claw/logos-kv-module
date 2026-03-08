@@ -36,6 +36,12 @@ if(WITH_ROCKSDB)
     endif()
 endif()
 
+# ── SQLite (optional) ─────────────────────────────────────────────────────────
+option(WITH_SQLITE "Build SQLite backend" OFF)
+if(WITH_SQLITE)
+    find_package(SQLite3 REQUIRED)
+endif()
+
 # ── Plugin target ─────────────────────────────────────────────────────────────
 qt_add_plugin(kv_module CLASS_NAME KvPlugin)
 
@@ -48,6 +54,10 @@ target_sources(kv_module PRIVATE
 
 if(WITH_ROCKSDB AND (RocksDB_FOUND OR ROCKSDB_FOUND))
     target_sources(kv_module PRIVATE src/backends/RocksDbBackend.cpp)
+endif()
+
+if(WITH_SQLITE)
+    target_sources(kv_module PRIVATE src/backends/SqliteBackend.cpp)
 endif()
 
 set_property(TARGET kv_module PROPERTY PUBLIC_HEADER
@@ -73,6 +83,11 @@ if(WITH_ROCKSDB)
         target_link_libraries(kv_module PRIVATE PkgConfig::ROCKSDB)
     endif()
     target_compile_definitions(kv_module PRIVATE HAVE_ROCKSDB)
+endif()
+
+if(WITH_SQLITE)
+    target_link_libraries(kv_module PRIVATE SQLite::SQLite3)
+    target_compile_definitions(kv_module PRIVATE HAVE_SQLITE)
 endif()
 
 # ── Compile definitions ──────────────────────────────────────────────────────
