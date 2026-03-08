@@ -2,6 +2,12 @@
 #include "backends/MemoryBackend.h"
 #include "backends/FileBackend.h"
 
+#ifdef LOGOS_CORE_AVAILABLE
+#include <logos_api_provider.h>
+#include <logos_api_client.h>
+#endif
+
+#include <QDebug>
 #include <filesystem>
 
 KvPlugin::KvPlugin(QObject *parent)
@@ -12,11 +18,28 @@ KvPlugin::KvPlugin(QObject *parent)
 #ifdef LOGOS_CORE_AVAILABLE
 void KvPlugin::initLogos(LogosAPI* logosAPIInstance) {
     logosAPI = logosAPIInstance;
-    if (logosAPI) {
-        const QString dirProp = logosAPI->property("kvDataDir").toString();
-        if (!dirProp.isEmpty())
-            setDataDir(dirProp);
+
+    if (!logosAPI) {
+        qWarning() << "KvPlugin: initLogos called with null LogosAPI";
+        qInfo() << "KvPlugin: initialized (headless). version:" << version();
+        return;
     }
+
+    // NOTE: Do NOT call logosAPI->getProvider()->registerObject() here.
+    // In logos_host subprocess mode, the SDK wraps us in a ModuleProxy
+    // that handles registration automatically. Calling registerObject()
+    // directly causes a segfault in the QHash destructor.
+
+    m_client = logosAPI->getClient(name());
+    if (!m_client) {
+        qWarning() << "KvPlugin: failed to get client handle for" << name();
+    }
+
+    const QString dirProp = logosAPI->property("kvDataDir").toString();
+    if (!dirProp.isEmpty())
+        setDataDir(dirProp);
+
+    qInfo() << "KvPlugin: initialized. version:" << version();
 }
 #endif
 

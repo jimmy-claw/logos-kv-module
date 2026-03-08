@@ -9,19 +9,27 @@ find_package(Qt6 REQUIRED COMPONENTS Core Qml)
 
 set(CMAKE_AUTOMOC ON)
 
-# ── logos-cpp-sdk ─────────────────────────────────────────────────────────────
-set(LOGOS_CORE_ROOT "" CACHE PATH "Path to logos-cpp-sdk install (contains include/ and lib/)")
-if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
+# ── Logos SDK + liblogos ──────────────────────────────────────────────────────
+set(LOGOS_CPP_SDK_ROOT "" CACHE PATH "Path to logos-cpp-sdk install")
+set(LOGOS_LIBLOGOS_ROOT "" CACHE PATH "Path to logos-liblogos install")
+
+if(NOT "${LOGOS_CPP_SDK_ROOT}" STREQUAL "" AND NOT "${LOGOS_LIBLOGOS_ROOT}" STREQUAL "")
+    set(LOGOS_CORE_AVAILABLE ON)
+
     add_library(logos_cpp_sdk INTERFACE)
     target_include_directories(logos_cpp_sdk INTERFACE
-        "${LOGOS_CORE_ROOT}/include"
-        "${LOGOS_CORE_ROOT}/include/cpp"
+        "${LOGOS_LIBLOGOS_ROOT}/include"
+        "${LOGOS_CPP_SDK_ROOT}/include"
+        "${LOGOS_CPP_SDK_ROOT}/include/cpp"
+        "${LOGOS_CPP_SDK_ROOT}/include/core"
     )
 
     add_library(logos_core SHARED IMPORTED)
     set_target_properties(logos_core PROPERTIES
-        IMPORTED_LOCATION "${LOGOS_CORE_ROOT}/lib/liblogos_core.so"
+        IMPORTED_LOCATION "${LOGOS_LIBLOGOS_ROOT}/lib/liblogos_core.so"
     )
+
+    find_library(LOGOS_SDK_LIB logos_sdk PATHS "${LOGOS_CPP_SDK_ROOT}/lib" NO_DEFAULT_PATH REQUIRED)
 endif()
 
 # ── RocksDB (optional) ────────────────────────────────────────────────────────
@@ -75,8 +83,14 @@ target_link_libraries(kv_module_plugin PRIVATE
     Qt6::Qml
 )
 
-if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
-    target_link_libraries(kv_module_plugin PRIVATE logos_cpp_sdk logos_core)
+if(LOGOS_CORE_AVAILABLE)
+    find_package(Qt6 REQUIRED COMPONENTS RemoteObjects)
+    target_link_libraries(kv_module_plugin PRIVATE
+        Qt6::RemoteObjects
+        logos_cpp_sdk
+        logos_core
+        ${LOGOS_SDK_LIB}
+    )
     target_compile_definitions(kv_module_plugin PRIVATE LOGOS_CORE_AVAILABLE)
 endif()
 
