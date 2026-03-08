@@ -21,11 +21,13 @@ A reusable Logos Core module exposing a simple KV interface via QtRO, with plugg
 
 ```cpp
 // QtRO interface — accessible from QML and other modules
-void set(QString ns, QString key, QByteArray value);
-QByteArray get(QString ns, QString key);
-void remove(QString ns, QString key);
-QStringList list(QString ns, QString prefix);
-void clear(QString ns);
+void     set(QString ns, QString key, QString value);
+QString  get(QString ns, QString key);
+void     remove(QString ns, QString key);
+QString  list(QString ns, QString prefix);    // returns JSON array
+QString  listAll(QString ns);                 // list with empty prefix
+void     clear(QString ns);
+QString  version();
 ```
 
 Namespacing ensures modules can't read each other's data.
@@ -35,37 +37,52 @@ Namespacing ensures modules can't read each other's data.
 Requires [Nix](https://nixos.org/) with flakes enabled.
 
 ```bash
-nix build          # build the module (plugin + headers)
-nix build .#lib    # build just the plugin library
-nix develop        # enter a dev shell with all dependencies
+nix build       # build the module (plugin + headers)
+nix build .#test  # build and run conformance tests
+nix develop     # enter a dev shell with all dependencies
 ```
 
 The Nix build uses [logos-module-builder](https://github.com/logos-co/logos-module-builder) and provides Qt6, logos-cpp-sdk, and logos-liblogos automatically.
 
-## E2E Tests
+## Testing
 
-End-to-end tests use the `logoscore` headless test harness to validate the full plugin stack (Qt plugin loader → kv_module).
+### Conformance Tests (CI)
+
+Unit-level backend conformance tests run on every push:
 
 ```bash
-# Build first (requires Nix with flakes)
-cd ~/logos-kv-module && nix build
-
-# Run E2E tests
-bash scripts/e2e-logoscore.sh
+nix build .#test
 ```
 
-The script tests `version()`, `kvSet`, `kvGet`, `kvList`, `kvRemove`, `kvClear`, and namespace isolation.
+### E2E Tests via logoscore
 
-> **Note:** These tests require a Nix build and are not run in CI. Run them locally before merging changes.
+Full integration tests using the `logoscore` headless Logos Core harness — exercises the complete stack: Qt plugin loader → `logos_host` subprocess → QtRO → kv_module.
+
+```bash
+nix build && bash scripts/e2e-logoscore.sh
+```
+
+Tests: `version()`, `set`/`get`/`list`/`remove`/`clear`, and namespace isolation. Also runs in CI via `nix build .#test`.
+
+### Example logoscore calls
+
+```bash
+LOGOSCORE=path/to/logoscore
+MODULES=path/to/result/lib
+
+QT_QPA_PLATFORM=offscreen    --modules-dir  --load-modules kv_module   --call 'kv_module.set(myapp, theme, dark)'
+
+QT_QPA_PLATFORM=offscreen    --modules-dir  --load-modules kv_module   --call 'kv_module.get(myapp, theme)'
+```
 
 ## Status
 
-🚧 Early design phase — see [issues](https://github.com/jimmy-claw/logos-kv-module/issues) for roadmap.
+✅ v0.1 complete — production-ready backends, Logos Core integrated, CI passing.
 
 ## Who needs this
 
 - [Scala](https://github.com/jimmy-claw/scala) — calendar + event storage
-- [Lope](https://github.com/jimmy-claw/lope) — notes + attachment index  
+- [Lope](https://github.com/jimmy-claw/lope) — notes + attachment index
 - [LMAO](https://github.com/jimmy-claw/lmao) — agent session state
 - Any future Logos Core app
 
