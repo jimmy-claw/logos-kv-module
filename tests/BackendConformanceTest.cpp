@@ -101,9 +101,18 @@ TEST_P(BackendConformanceTest, ListWithPrefixReturnsOnlyMatchingKeys) {
     EXPECT_EQ(result[1], "user:2");
 }
 
-TEST_P(BackendConformanceTest, ListEmptyNamespaceReturnsEmpty) {
-    auto result = backend->list("");
+TEST_P(BackendConformanceTest, ListOnEmptyBackendReturnsEmpty) {
+    // Backend has no keys — list with any prefix should return empty
+    auto result = backend->list("user:");
     EXPECT_TRUE(result.empty());
+}
+
+TEST_P(BackendConformanceTest, ListEmptyPrefixReturnsAllKeys) {
+    // Empty prefix matches all keys
+    backend->set("a", "1");
+    backend->set("b", "2");
+    auto result = backend->list("");
+    EXPECT_EQ(result.size(), 2u);
 }
 
 // --- Clear operations ---
