@@ -14,6 +14,12 @@ else()
         "LogosModule.cmake not found. Set LOGOS_MODULE_CMAKE_PATH or use 'nix build'.")
 endif()
 
+# ── SQLite (optional) ────────────────────────────────────────────────────────
+option(WITH_SQLITE "Build SQLite backend" OFF)
+if(WITH_SQLITE)
+    find_package(SQLite3 REQUIRED)
+endif()
+
 # ── RocksDB (optional) ──────────────────────────────────────────────────────
 option(WITH_ROCKSDB "Build RocksDB backend" OFF)
 if(WITH_ROCKSDB)
@@ -39,6 +45,10 @@ set(KV_SOURCES
 
 if(WITH_ROCKSDB AND (RocksDB_FOUND OR ROCKSDB_FOUND))
     list(APPEND KV_SOURCES src/backends/RocksDbBackend.cpp)
+
+if(WITH_SQLITE)
+    list(APPEND KV_SOURCES src/backends/SqliteBackend.cpp)
+endif()
 endif()
 
 # ── Module target ────────────────────────────────────────────────────────────
@@ -61,6 +71,11 @@ if(WITH_ROCKSDB)
         target_link_libraries(kv_module_module_plugin PRIVATE PkgConfig::ROCKSDB)
     endif()
     target_compile_definitions(kv_module_module_plugin PRIVATE HAVE_ROCKSDB)
+
+if(WITH_SQLITE)
+    target_link_libraries(kv_module_module_plugin PRIVATE SQLite::SQLite3)
+    target_compile_definitions(kv_module_module_plugin PRIVATE HAVE_SQLITE)
+endif()
 endif()
 
 # ── Tests ────────────────────────────────────────────────────────────────────

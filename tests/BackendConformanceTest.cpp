@@ -6,6 +6,9 @@
 #ifdef HAVE_ROCKSDB
 #include "backends/RocksDbBackend.h"
 #endif
+#ifdef HAVE_SQLITE
+#include "backends/SqliteBackend.h"
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -28,6 +31,12 @@ protected:
         if (GetParam() == "RocksDbBackend") {
             auto dir = makeTempDir();
             return std::make_unique<RocksDbBackend>(dir);
+        }
+#endif
+#ifdef HAVE_SQLITE
+        if (GetParam() == "SqliteBackend") {
+            auto dir = makeTempDir();
+            return std::make_unique<SqliteBackend>(dir / "test.db");
         }
 #endif
         auto dir = makeTempDir();
@@ -207,6 +216,9 @@ static auto backendValues() {
     std::vector<std::string> backends = {"MemoryBackend", "FileBackend"};
 #ifdef HAVE_ROCKSDB
     backends.push_back("RocksDbBackend");
+#endif
+#ifdef HAVE_SQLITE
+    backends.push_back("SqliteBackend");
 #endif
     return ::testing::ValuesIn(backends);
 }
