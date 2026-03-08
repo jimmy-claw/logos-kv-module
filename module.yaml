@@ -4,5 +4,6 @@ type: core
 category: storage
 description: "Local key-value storage module for Logos Core with swappable backends (memory/file/rocksdb/sqlite)"
 nix_packages:
-  build: []
+  build:
+    - qt6.qtbase
   runtime: []
