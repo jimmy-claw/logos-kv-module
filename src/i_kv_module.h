@@ -24,7 +24,7 @@ public:
     virtual void kvSet(const QString& ns, const QString& key, const QString& value) = 0;
     virtual QString kvGet(const QString& ns, const QString& key) = 0;
     virtual void kvRemove(const QString& ns, const QString& key) = 0;
-    virtual QStringList kvList(const QString& ns, const QString& prefix) = 0;
+    virtual QString kvList(const QString& ns, const QString& prefix) = 0;
     virtual void kvClear(const QString& ns) = 0;
 };
 

@@ -90,12 +90,16 @@ void KvPlugin::kvRemove(const QString& ns, const QString& key) {
     emit kvChanged(ns, key);
 }
 
-QStringList KvPlugin::kvList(const QString& ns, const QString& prefix) {
+QString KvPlugin::kvList(const QString& ns, const QString& prefix) {
     auto keys = backendForNamespace(ns.toStdString()).list(prefix.toStdString());
-    QStringList result;
-    result.reserve(static_cast<int>(keys.size()));
-    for (const auto &k : keys)
-        result.append(QString::fromStdString(k));
+    QString result = QStringLiteral("[");
+    bool first = true;
+    for (const auto &k : keys) {
+        if (!first) result += ',';
+        result += '"' + QString::fromStdString(k) + '"';
+        first = false;
+    }
+    result += ']';
     return result;
 }
 
