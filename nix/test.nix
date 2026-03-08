@@ -27,8 +27,6 @@ pkgs.stdenv.mkDerivation {
     "-DBUILD_TESTS=ON"
     "-DWITH_ROCKSDB=ON"
     "-DWITH_SQLITE=ON"
-    # Nix's rocksdb cmake config has broken IMPORTED targets;
-    # disable find_package(RocksDB) so the fallback to pkg-config is used.
     "-DCMAKE_DISABLE_FIND_PACKAGE_RocksDB=ON"
   ];
 
@@ -38,9 +36,10 @@ pkgs.stdenv.mkDerivation {
 
   checkPhase = ''
     runHook preCheck
-    mkdir -p $PWD/tmp-sandbox
-    export TMPDIR=$PWD/tmp-sandbox
-    export HOME=$(mktemp -d)
+    mkdir -p $PWD/kv-test-tmp
+    export KV_TEST_TMPDIR=$PWD/kv-test-tmp
+    export HOME=$PWD/home
+    mkdir -p $HOME
     QT_QPA_PLATFORM=offscreen ctest --output-on-failure
     runHook postCheck
   '';

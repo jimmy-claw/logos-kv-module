@@ -45,8 +45,11 @@ protected:
 
     std::filesystem::path makeTempDir() {
         static std::atomic<int> counter{0};
-        auto dir = std::filesystem::temp_directory_path() /
-            ("kv_conformance_" + std::to_string(counter.fetch_add(1)));
+        // Respect KV_TEST_TMPDIR env var (set in Nix sandbox where /tmp is read-only)
+        const char* base_env = std::getenv("KV_TEST_TMPDIR");
+        std::filesystem::path base = base_env ? std::filesystem::path(base_env)
+                                              : std::filesystem::temp_directory_path();
+        auto dir = base / ("kv_conformance_" + std::to_string(counter.fetch_add(1)));
         std::filesystem::create_directories(dir);
         temp_dirs_.push_back(dir);
         return dir;
