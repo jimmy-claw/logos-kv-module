@@ -1,0 +1,9 @@
+{
+  "name": "kv_module",
+  "version": "0.1.0",
+  "type": "core",
+  "category": "storage",
+  "description": "Local key-value storage module for Logos Core with swappable backends",
+  "backends": ["memory", "file"],
+  "default_backend": "memory"
+}
