@@ -42,6 +42,22 @@ nix develop        # enter a dev shell with all dependencies
 
 The Nix build uses [logos-module-builder](https://github.com/logos-co/logos-module-builder) and provides Qt6, logos-cpp-sdk, and logos-liblogos automatically.
 
+## E2E Tests
+
+End-to-end tests use the `logoscore` headless test harness to validate the full plugin stack (Qt plugin loader → kv_module).
+
+```bash
+# Build first (requires Nix with flakes)
+cd ~/logos-kv-module && nix build
+
+# Run E2E tests
+bash scripts/e2e-logoscore.sh
+```
+
+The script tests `version()`, `kvSet`, `kvGet`, `kvList`, `kvRemove`, `kvClear`, and namespace isolation.
+
+> **Note:** These tests require a Nix build and are not run in CI. Run them locally before merging changes.
+
 ## Status
 
 🚧 Early design phase — see [issues](https://github.com/jimmy-claw/logos-kv-module/issues) for roadmap.
