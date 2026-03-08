@@ -3,6 +3,9 @@
 #include "backends/KvBackend.h"
 #include "backends/MemoryBackend.h"
 #include "backends/FileBackend.h"
+#ifdef HAVE_ROCKSDB
+#include "backends/RocksDbBackend.h"
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -21,6 +24,12 @@ protected:
         if (GetParam() == "MemoryBackend") {
             return std::make_unique<MemoryBackend>();
         }
+#ifdef HAVE_ROCKSDB
+        if (GetParam() == "RocksDbBackend") {
+            auto dir = makeTempDir();
+            return std::make_unique<RocksDbBackend>(dir);
+        }
+#endif
         auto dir = makeTempDir();
         return std::make_unique<FileBackend>(dir);
     }
@@ -194,10 +203,18 @@ TEST_P(BackendConformanceTest, ConcurrentWrites) {
     }
 }
 
+static auto backendValues() {
+    std::vector<std::string> backends = {"MemoryBackend", "FileBackend"};
+#ifdef HAVE_ROCKSDB
+    backends.push_back("RocksDbBackend");
+#endif
+    return ::testing::ValuesIn(backends);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     Backends,
     BackendConformanceTest,
-    ::testing::Values("MemoryBackend", "FileBackend"),
+    backendValues(),
     [](const ::testing::TestParamInfo<std::string> &info) {
         return info.param;
     });

@@ -24,6 +24,18 @@ if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
     )
 endif()
 
+# ── RocksDB (optional) ────────────────────────────────────────────────────────
+option(WITH_ROCKSDB "Build RocksDB backend" OFF)
+if(WITH_ROCKSDB)
+    find_package(RocksDB QUIET)
+    if(NOT RocksDB_FOUND)
+        find_package(PkgConfig)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(ROCKSDB IMPORTED_TARGET rocksdb)
+        endif()
+    endif()
+endif()
+
 # ── Plugin target ─────────────────────────────────────────────────────────────
 qt_add_plugin(kv_module CLASS_NAME KvPlugin)
 
@@ -33,6 +45,10 @@ target_sources(kv_module PRIVATE
     src/backends/MemoryBackend.cpp
     src/backends/FileBackend.cpp
 )
+
+if(WITH_ROCKSDB AND (RocksDB_FOUND OR ROCKSDB_FOUND))
+    target_sources(kv_module PRIVATE src/backends/RocksDbBackend.cpp)
+endif()
 
 set_property(TARGET kv_module PROPERTY PUBLIC_HEADER
     src/i_kv_module.h
@@ -48,6 +64,15 @@ target_link_libraries(kv_module PRIVATE
 if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
     target_link_libraries(kv_module PRIVATE logos_cpp_sdk logos_core)
     target_compile_definitions(kv_module PRIVATE LOGOS_CORE_AVAILABLE)
+endif()
+
+if(WITH_ROCKSDB)
+    if(RocksDB_FOUND)
+        target_link_libraries(kv_module PRIVATE RocksDB::rocksdb)
+    elseif(ROCKSDB_FOUND)
+        target_link_libraries(kv_module PRIVATE PkgConfig::ROCKSDB)
+    endif()
+    target_compile_definitions(kv_module PRIVATE HAVE_ROCKSDB)
 endif()
 
 # ── Compile definitions ──────────────────────────────────────────────────────

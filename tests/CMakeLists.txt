@@ -12,21 +12,53 @@ find_package(Threads REQUIRED)
 
 enable_testing()
 
-add_executable(backend_conformance_test
-    BackendConformanceTest.cpp
+set(BACKEND_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/backends/MemoryBackend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/backends/FileBackend.cpp
+)
+
+set(BACKEND_LIBS
+    GTest::GTest
+    GTest::Main
+    Threads::Threads
+)
+
+option(WITH_ROCKSDB "Build with RocksDB backend" OFF)
+if(WITH_ROCKSDB)
+    find_package(RocksDB QUIET)
+    if(NOT RocksDB_FOUND)
+        find_package(PkgConfig)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(ROCKSDB IMPORTED_TARGET rocksdb)
+        endif()
+    endif()
+
+    if(RocksDB_FOUND OR ROCKSDB_FOUND)
+        list(APPEND BACKEND_SOURCES
+            ${CMAKE_CURRENT_SOURCE_DIR}/../src/backends/RocksDbBackend.cpp
+        )
+    endif()
+endif()
+
+add_executable(backend_conformance_test
+    BackendConformanceTest.cpp
+    ${BACKEND_SOURCES}
 )
 
 target_include_directories(backend_conformance_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../src
 )
 
-target_link_libraries(backend_conformance_test
-    GTest::GTest
-    GTest::Main
-    Threads::Threads
-)
+target_link_libraries(backend_conformance_test ${BACKEND_LIBS})
+
+if(WITH_ROCKSDB)
+    if(RocksDB_FOUND)
+        target_link_libraries(backend_conformance_test RocksDB::rocksdb)
+    elseif(ROCKSDB_FOUND)
+        target_link_libraries(backend_conformance_test PkgConfig::ROCKSDB)
+    endif()
+    target_compile_definitions(backend_conformance_test PRIVATE HAVE_ROCKSDB)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(backend_conformance_test)
