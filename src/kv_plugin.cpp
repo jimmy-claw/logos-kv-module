@@ -103,6 +103,10 @@ QString KvPlugin::kvList(const QString& ns, const QString& prefix) {
     return result;
 }
 
+QString KvPlugin::kvListAll(const QString& ns) {
+    return kvList(ns, QString());
+}
+
 void KvPlugin::kvClear(const QString& ns) {
     backendForNamespace(ns.toStdString()).clear();
     emit kvChanged(ns, QString());
