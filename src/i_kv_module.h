@@ -5,7 +5,9 @@
 #include <QString>
 #include <QByteArray>
 #include <QStringList>
+#ifdef LOGOS_CORE_AVAILABLE
 #include <interface.h>
+#endif
 
 /**
  * IKvModule — Public interface for the KV Storage Logos Core module.
