@@ -38,7 +38,8 @@ pkgs.stdenv.mkDerivation {
 
   checkPhase = ''
     runHook preCheck
-    export TMPDIR=$(mktemp -d)
+    mkdir -p $PWD/tmp-sandbox
+    export TMPDIR=$PWD/tmp-sandbox
     export HOME=$(mktemp -d)
     QT_QPA_PLATFORM=offscreen ctest --output-on-failure
     runHook postCheck
