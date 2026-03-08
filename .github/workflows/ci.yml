@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    name: Conformance Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,10 +17,27 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgtest-dev cmake
 
       - name: Configure
-        run: cmake -S tests -B build
+        run: cmake -S tests -B build-tests
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build build-tests
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build-tests --output-on-failure
+
+  build-plugin:
+    name: Qt Plugin Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake qt6-base-dev qt6-declarative-dev
+
+      - name: Configure
+        run: cmake -S . -B build-plugin
+
+      - name: Build
+        run: cmake --build build-plugin
