@@ -40,6 +40,14 @@ if(WITH_ROCKSDB)
     endif()
 endif()
 
+option(WITH_SQLITE "Build with SQLite backend" OFF)
+if(WITH_SQLITE)
+    find_package(SQLite3 REQUIRED)
+    list(APPEND BACKEND_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/backends/SqliteBackend.cpp
+    )
+endif()
+
 add_executable(backend_conformance_test
     BackendConformanceTest.cpp
     ${BACKEND_SOURCES}
@@ -58,6 +66,11 @@ if(WITH_ROCKSDB)
         target_link_libraries(backend_conformance_test PkgConfig::ROCKSDB)
     endif()
     target_compile_definitions(backend_conformance_test PRIVATE HAVE_ROCKSDB)
+endif()
+
+if(WITH_SQLITE)
+    target_link_libraries(backend_conformance_test SQLite::SQLite3)
+    target_compile_definitions(backend_conformance_test PRIVATE HAVE_SQLITE)
 endif()
 
 include(GoogleTest)
