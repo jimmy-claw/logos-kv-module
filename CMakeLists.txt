@@ -9,19 +9,27 @@ find_package(Qt6 REQUIRED COMPONENTS Core Qml)
 
 set(CMAKE_AUTOMOC ON)
 
-# ── logos-cpp-sdk ─────────────────────────────────────────────────────────────
-set(LOGOS_CORE_ROOT "" CACHE PATH "Path to logos-cpp-sdk install (contains include/ and lib/)")
-if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
+# ── Logos SDK + liblogos ──────────────────────────────────────────────────────
+set(LOGOS_CPP_SDK_ROOT "" CACHE PATH "Path to logos-cpp-sdk install")
+set(LOGOS_LIBLOGOS_ROOT "" CACHE PATH "Path to logos-liblogos install")
+
+if(NOT "${LOGOS_CPP_SDK_ROOT}" STREQUAL "" AND NOT "${LOGOS_LIBLOGOS_ROOT}" STREQUAL "")
+    set(LOGOS_CORE_AVAILABLE ON)
+
     add_library(logos_cpp_sdk INTERFACE)
     target_include_directories(logos_cpp_sdk INTERFACE
-        "${LOGOS_CORE_ROOT}/include"
-        "${LOGOS_CORE_ROOT}/include/cpp"
+        "${LOGOS_LIBLOGOS_ROOT}/include"
+        "${LOGOS_CPP_SDK_ROOT}/include"
+        "${LOGOS_CPP_SDK_ROOT}/include/cpp"
+        "${LOGOS_CPP_SDK_ROOT}/include/core"
     )
 
     add_library(logos_core SHARED IMPORTED)
     set_target_properties(logos_core PROPERTIES
-        IMPORTED_LOCATION "${LOGOS_CORE_ROOT}/lib/liblogos_core.so"
+        IMPORTED_LOCATION "${LOGOS_LIBLOGOS_ROOT}/lib/liblogos_core.so"
     )
+
+    find_library(LOGOS_SDK_LIB logos_sdk PATHS "${LOGOS_CPP_SDK_ROOT}/lib" NO_DEFAULT_PATH REQUIRED)
 endif()
 
 # ── RocksDB (optional) ────────────────────────────────────────────────────────
@@ -43,9 +51,13 @@ if(WITH_SQLITE)
 endif()
 
 # ── Plugin target ─────────────────────────────────────────────────────────────
-qt_add_plugin(kv_module CLASS_NAME KvPlugin)
+qt_add_plugin(kv_module_plugin CLASS_NAME KvPlugin)
+set_target_properties(kv_module_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "kv_module_plugin"
+)
 
-target_sources(kv_module PRIVATE
+target_sources(kv_module_plugin PRIVATE
     src/kv_plugin.cpp
     src/plugin.cpp
     src/backends/MemoryBackend.cpp
@@ -53,63 +65,69 @@ target_sources(kv_module PRIVATE
 )
 
 if(WITH_ROCKSDB AND (RocksDB_FOUND OR ROCKSDB_FOUND))
-    target_sources(kv_module PRIVATE src/backends/RocksDbBackend.cpp)
+    target_sources(kv_module_plugin PRIVATE src/backends/RocksDbBackend.cpp)
 endif()
 
 if(WITH_SQLITE)
-    target_sources(kv_module PRIVATE src/backends/SqliteBackend.cpp)
+    target_sources(kv_module_plugin PRIVATE src/backends/SqliteBackend.cpp)
 endif()
 
-set_property(TARGET kv_module PROPERTY PUBLIC_HEADER
+set_property(TARGET kv_module_plugin PROPERTY PUBLIC_HEADER
     src/i_kv_module.h
 )
 
-target_include_directories(kv_module PRIVATE src)
+target_include_directories(kv_module_plugin PRIVATE src)
 
-target_link_libraries(kv_module PRIVATE
+target_link_libraries(kv_module_plugin PRIVATE
     Qt6::Core
     Qt6::Qml
 )
 
-if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
-    target_link_libraries(kv_module PRIVATE logos_cpp_sdk logos_core)
-    target_compile_definitions(kv_module PRIVATE LOGOS_CORE_AVAILABLE)
+if(LOGOS_CORE_AVAILABLE)
+    find_package(Qt6 REQUIRED COMPONENTS RemoteObjects)
+    target_link_libraries(kv_module_plugin PRIVATE
+        Qt6::RemoteObjects
+        logos_cpp_sdk
+        logos_core
+        ${LOGOS_SDK_LIB}
+    )
+    target_compile_definitions(kv_module_plugin PRIVATE LOGOS_CORE_AVAILABLE)
 endif()
 
 if(WITH_ROCKSDB)
     if(RocksDB_FOUND)
-        target_link_libraries(kv_module PRIVATE RocksDB::rocksdb)
+        target_link_libraries(kv_module_plugin PRIVATE RocksDB::rocksdb)
     elseif(ROCKSDB_FOUND)
-        target_link_libraries(kv_module PRIVATE PkgConfig::ROCKSDB)
+        target_link_libraries(kv_module_plugin PRIVATE PkgConfig::ROCKSDB)
     endif()
-    target_compile_definitions(kv_module PRIVATE HAVE_ROCKSDB)
+    target_compile_definitions(kv_module_plugin PRIVATE HAVE_ROCKSDB)
 endif()
 
 if(WITH_SQLITE)
-    target_link_libraries(kv_module PRIVATE SQLite::SQLite3)
-    target_compile_definitions(kv_module PRIVATE HAVE_SQLITE)
+    target_link_libraries(kv_module_plugin PRIVATE SQLite::SQLite3)
+    target_compile_definitions(kv_module_plugin PRIVATE HAVE_SQLITE)
 endif()
 
 # ── Compile definitions ──────────────────────────────────────────────────────
-target_compile_definitions(kv_module PRIVATE
+target_compile_definitions(kv_module_plugin PRIVATE
     QT_PLUGIN
 )
 
 # ── RPATH ─────────────────────────────────────────────────────────────────────
 if(APPLE)
-    set_target_properties(kv_module PROPERTIES
+    set_target_properties(kv_module_plugin PROPERTIES
         BUILD_RPATH   "@loader_path"
         INSTALL_RPATH "@loader_path"
     )
 elseif(UNIX)
-    set_target_properties(kv_module PROPERTIES
+    set_target_properties(kv_module_plugin PROPERTIES
         BUILD_RPATH   "$ORIGIN"
         INSTALL_RPATH "$ORIGIN"
     )
 endif()
 
 # ── Install ───────────────────────────────────────────────────────────────────
-install(TARGETS kv_module
+install(TARGETS kv_module_plugin
     LIBRARY       DESTINATION lib
     PUBLIC_HEADER DESTINATION include
 )

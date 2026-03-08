@@ -9,6 +9,8 @@
 
 #ifdef LOGOS_CORE_AVAILABLE
 #include <interface.h>
+class LogosAPIClient;
+
 class KvPlugin final : public QObject, public PluginInterface, public IKvModule {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID IKvModule_iid FILE "metadata.json")
@@ -24,11 +26,14 @@ public:
     explicit KvPlugin(QObject *parent = nullptr);
     ~KvPlugin() override = default;
 
+    // ── PluginInterface ─────────────────────────────────────────────────────
+#ifdef LOGOS_CORE_AVAILABLE
+    [[nodiscard]] QString name() const override { return QStringLiteral("kv_module"); }
+    Q_INVOKABLE QString version() const override { return QStringLiteral("0.1.0"); }
+    Q_INVOKABLE void initLogos(LogosAPI* logosAPIInstance);
+#else
     [[nodiscard]] QString name() const { return QStringLiteral("kv_module"); }
     Q_INVOKABLE QString version() const { return QStringLiteral("0.1.0"); }
-
-#ifdef LOGOS_CORE_AVAILABLE
-    Q_INVOKABLE void initLogos(LogosAPI* logosAPIInstance);
 #endif
 
     // IKvModule operations
@@ -52,6 +57,6 @@ private:
     bool use_file_backend_ = false;
 
 #ifdef LOGOS_CORE_AVAILABLE
-    LogosAPI* logosAPI = nullptr;
+    LogosAPIClient* m_client = nullptr;
 #endif
 };
