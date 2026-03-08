@@ -30,6 +30,18 @@ void clear(QString ns);
 
 Namespacing ensures modules can't read each other's data.
 
+## Building with Nix
+
+Requires [Nix](https://nixos.org/) with flakes enabled.
+
+```bash
+nix build          # build the module (plugin + headers)
+nix build .#lib    # build just the plugin library
+nix develop        # enter a dev shell with all dependencies
+```
+
+The Nix build uses [logos-module-builder](https://github.com/logos-co/logos-module-builder) and provides Qt6, logos-cpp-sdk, and logos-liblogos automatically.
+
 ## Status
 
 🚧 Early design phase — see [issues](https://github.com/jimmy-claw/logos-kv-module/issues) for roadmap.
