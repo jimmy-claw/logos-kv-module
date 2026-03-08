@@ -4,23 +4,27 @@ project(kv_module VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ── LogosModule.cmake ────────────────────────────────────────────────────────
-if(DEFINED ENV{LOGOS_MODULE_CMAKE_PATH})
-    include($ENV{LOGOS_MODULE_CMAKE_PATH})
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LogosModule.cmake")
-    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/LogosModule.cmake)
-else()
-    message(FATAL_ERROR
-        "LogosModule.cmake not found. Set LOGOS_MODULE_CMAKE_PATH or use 'nix build'.")
+# ── Qt6 ───────────────────────────────────────────────────────────────────────
+find_package(Qt6 REQUIRED COMPONENTS Core Qml)
+
+set(CMAKE_AUTOMOC ON)
+
+# ── logos-cpp-sdk ─────────────────────────────────────────────────────────────
+set(LOGOS_CORE_ROOT "" CACHE PATH "Path to logos-cpp-sdk install (contains include/ and lib/)")
+if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
+    add_library(logos_cpp_sdk INTERFACE)
+    target_include_directories(logos_cpp_sdk INTERFACE
+        "${LOGOS_CORE_ROOT}/include"
+        "${LOGOS_CORE_ROOT}/include/cpp"
+    )
+
+    add_library(logos_core SHARED IMPORTED)
+    set_target_properties(logos_core PROPERTIES
+        IMPORTED_LOCATION "${LOGOS_CORE_ROOT}/lib/liblogos_core.so"
+    )
 endif()
 
-# ── SQLite (optional) ────────────────────────────────────────────────────────
-option(WITH_SQLITE "Build SQLite backend" OFF)
-if(WITH_SQLITE)
-    find_package(SQLite3 REQUIRED)
-endif()
-
-# ── RocksDB (optional) ──────────────────────────────────────────────────────
+# ── RocksDB (optional) ────────────────────────────────────────────────────────
 option(WITH_ROCKSDB "Build RocksDB backend" OFF)
 if(WITH_ROCKSDB)
     find_package(RocksDB QUIET)
@@ -32,11 +36,16 @@ if(WITH_ROCKSDB)
     endif()
 endif()
 
-# ── Source files ─────────────────────────────────────────────────────────────
-set(KV_SOURCES
-    src/i_kv_module.h
-    src/kv_interface.h
-    src/kv_plugin.h
+# ── SQLite (optional) ─────────────────────────────────────────────────────────
+option(WITH_SQLITE "Build SQLite backend" OFF)
+if(WITH_SQLITE)
+    find_package(SQLite3 REQUIRED)
+endif()
+
+# ── Plugin target ─────────────────────────────────────────────────────────────
+qt_add_plugin(kv_module CLASS_NAME KvPlugin)
+
+target_sources(kv_module PRIVATE
     src/kv_plugin.cpp
     src/plugin.cpp
     src/backends/MemoryBackend.cpp
@@ -44,41 +53,68 @@ set(KV_SOURCES
 )
 
 if(WITH_ROCKSDB AND (RocksDB_FOUND OR ROCKSDB_FOUND))
-    list(APPEND KV_SOURCES src/backends/RocksDbBackend.cpp)
+    target_sources(kv_module PRIVATE src/backends/RocksDbBackend.cpp)
+endif()
 
 if(WITH_SQLITE)
-    list(APPEND KV_SOURCES src/backends/SqliteBackend.cpp)
-endif()
+    target_sources(kv_module PRIVATE src/backends/SqliteBackend.cpp)
 endif()
 
-# ── Module target ────────────────────────────────────────────────────────────
-# logos_module() creates target "kv_module_module_plugin" with output
-# name "kv_module_plugin", links Qt6::Core and Qt6::RemoteObjects,
-# sets up AUTOMOC, RPATH, and install rules.
-logos_module(
-    NAME kv_module
-    SOURCES ${KV_SOURCES}
+set_property(TARGET kv_module PROPERTY PUBLIC_HEADER
+    src/i_kv_module.h
 )
 
-# SDK is always available when built through logos_module()
-target_compile_definitions(kv_module_module_plugin PRIVATE LOGOS_CORE_AVAILABLE)
+target_include_directories(kv_module PRIVATE src)
 
-# ── RocksDB linking ─────────────────────────────────────────────────────────
+target_link_libraries(kv_module PRIVATE
+    Qt6::Core
+    Qt6::Qml
+)
+
+if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
+    target_link_libraries(kv_module PRIVATE logos_cpp_sdk logos_core)
+    target_compile_definitions(kv_module PRIVATE LOGOS_CORE_AVAILABLE)
+endif()
+
 if(WITH_ROCKSDB)
     if(RocksDB_FOUND)
-        target_link_libraries(kv_module_module_plugin PRIVATE RocksDB::rocksdb)
+        target_link_libraries(kv_module PRIVATE RocksDB::rocksdb)
     elseif(ROCKSDB_FOUND)
-        target_link_libraries(kv_module_module_plugin PRIVATE PkgConfig::ROCKSDB)
+        target_link_libraries(kv_module PRIVATE PkgConfig::ROCKSDB)
     endif()
-    target_compile_definitions(kv_module_module_plugin PRIVATE HAVE_ROCKSDB)
+    target_compile_definitions(kv_module PRIVATE HAVE_ROCKSDB)
+endif()
 
 if(WITH_SQLITE)
-    target_link_libraries(kv_module_module_plugin PRIVATE SQLite::SQLite3)
-    target_compile_definitions(kv_module_module_plugin PRIVATE HAVE_SQLITE)
-endif()
+    target_link_libraries(kv_module PRIVATE SQLite::SQLite3)
+    target_compile_definitions(kv_module PRIVATE HAVE_SQLITE)
 endif()
 
-# ── Tests ────────────────────────────────────────────────────────────────────
+# ── Compile definitions ──────────────────────────────────────────────────────
+target_compile_definitions(kv_module PRIVATE
+    QT_PLUGIN
+)
+
+# ── RPATH ─────────────────────────────────────────────────────────────────────
+if(APPLE)
+    set_target_properties(kv_module PROPERTIES
+        BUILD_RPATH   "@loader_path"
+        INSTALL_RPATH "@loader_path"
+    )
+elseif(UNIX)
+    set_target_properties(kv_module PROPERTIES
+        BUILD_RPATH   "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
+endif()
+
+# ── Install ───────────────────────────────────────────────────────────────────
+install(TARGETS kv_module
+    LIBRARY       DESTINATION lib
+    PUBLIC_HEADER DESTINATION include
+)
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
 option(BUILD_TESTS "Build conformance tests" OFF)
 if(BUILD_TESTS)
     enable_testing()
