@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <mutex>
+#include <unordered_map>
 
 class FileBackend : public KvBackend {
 public:

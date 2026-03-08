@@ -1,5 +1,7 @@
 #include "MemoryBackend.h"
 
+#include <mutex>
+
 void MemoryBackend::set(const std::string &key, const std::string &value) {
     std::unique_lock lock(mutex_);
     store_[key] = value;

@@ -21,3 +21,9 @@ logos_module(
         src/backends/MemoryBackend.h
         src/backends/FileBackend.h
 )
+
+option(BUILD_TESTS "Build conformance tests" OFF)
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
