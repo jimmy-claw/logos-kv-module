@@ -37,8 +37,8 @@ public:
 #endif
 
     // IKvModule operations
-    Q_INVOKABLE void kvSet(const QString& ns, const QString& key, const QByteArray& value) override;
-    Q_INVOKABLE QByteArray kvGet(const QString& ns, const QString& key) override;
+    Q_INVOKABLE void kvSet(const QString& ns, const QString& key, const QString& value) override;
+    Q_INVOKABLE QString kvGet(const QString& ns, const QString& key) override;
     Q_INVOKABLE void kvRemove(const QString& ns, const QString& key) override;
     Q_INVOKABLE QStringList kvList(const QString& ns, const QString& prefix) override;
     Q_INVOKABLE void kvClear(const QString& ns) override;
