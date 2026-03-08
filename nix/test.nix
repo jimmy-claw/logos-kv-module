@@ -3,6 +3,8 @@
 
 pkgs.stdenv.mkDerivation {
   pname = "kv-module-test";
+  # Tests need real filesystem (RocksDB/SQLite create files with renames)
+  __noChroot = true;
   version = "0.1.0";
 
   inherit src;
