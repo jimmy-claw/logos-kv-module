@@ -73,16 +73,16 @@ KvBackend &KvPlugin::backendForNamespace(const std::string &ns) {
 
 // ── IKvModule operations ─────────────────────────────────────────────────────
 
-void KvPlugin::kvSet(const QString& ns, const QString& key, const QByteArray& value) {
-    backendForNamespace(ns.toStdString()).set(key.toStdString(), std::string(value.constData(), value.size()));
+void KvPlugin::kvSet(const QString& ns, const QString& key, const QString& value) {
+    backendForNamespace(ns.toStdString()).set(key.toStdString(), value.toStdString());
     emit kvChanged(ns, key);
 }
 
-QByteArray KvPlugin::kvGet(const QString& ns, const QString& key) {
+QString KvPlugin::kvGet(const QString& ns, const QString& key) {
     auto result = backendForNamespace(ns.toStdString()).get(key.toStdString());
     if (!result)
         return {};
-    return QByteArray::fromStdString(*result);
+    return QString::fromStdString(*result);
 }
 
 void KvPlugin::kvRemove(const QString& ns, const QString& key) {
@@ -90,13 +90,21 @@ void KvPlugin::kvRemove(const QString& ns, const QString& key) {
     emit kvChanged(ns, key);
 }
 
-QStringList KvPlugin::kvList(const QString& ns, const QString& prefix) {
+QString KvPlugin::kvList(const QString& ns, const QString& prefix) {
     auto keys = backendForNamespace(ns.toStdString()).list(prefix.toStdString());
-    QStringList result;
-    result.reserve(static_cast<int>(keys.size()));
-    for (const auto &k : keys)
-        result.append(QString::fromStdString(k));
+    QString result = QStringLiteral("[");
+    bool first = true;
+    for (const auto &k : keys) {
+        if (!first) result += ',';
+        result += '"' + QString::fromStdString(k) + '"';
+        first = false;
+    }
+    result += ']';
     return result;
+}
+
+QString KvPlugin::kvListAll(const QString& ns) {
+    return kvList(ns, QString());
 }
 
 void KvPlugin::kvClear(const QString& ns) {
