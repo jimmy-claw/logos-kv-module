@@ -1,33 +1,37 @@
 #pragma once
 
 #include "i_kv_module.h"
-#include "kv_interface.h"
 #include "backends/KvBackend.h"
 
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 
+#ifdef LOGOS_CORE_AVAILABLE
+#include <interface.h>
 class KvPlugin final : public QObject, public PluginInterface, public IKvModule {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID IKvModule_iid FILE "metadata.json")
     Q_INTERFACES(PluginInterface IKvModule)
+#else
+class KvPlugin final : public QObject, public IKvModule {
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID IKvModule_iid FILE "metadata.json")
+    Q_INTERFACES(IKvModule)
+#endif
 
 public:
     explicit KvPlugin(QObject *parent = nullptr);
     ~KvPlugin() override = default;
 
-    // ── PluginInterface ──────────────────────────────────────────────────────
+    [[nodiscard]] QString name() const { return QStringLiteral("kv_module"); }
+    Q_INVOKABLE QString version() const { return QStringLiteral("0.1.0"); }
 
-    [[nodiscard]] QString name() const override { return QStringLiteral("kv_module"); }
-    Q_INVOKABLE QString version() const override { return QStringLiteral("0.1.0"); }
-
-    // ── Logos Core lifecycle ─────────────────────────────────────────────────
-
+#ifdef LOGOS_CORE_AVAILABLE
     Q_INVOKABLE void initLogos(LogosAPI* logosAPIInstance);
+#endif
 
-    // ── IKvModule operations (Q_INVOKABLE for RPC) ──────────────────────────
-
+    // IKvModule operations
     Q_INVOKABLE void kvSet(const QString& ns, const QString& key, const QByteArray& value) override;
     Q_INVOKABLE QByteArray kvGet(const QString& ns, const QString& key) override;
     Q_INVOKABLE void kvRemove(const QString& ns, const QString& key) override;
@@ -46,4 +50,8 @@ private:
     std::mutex backends_mutex_;
     std::unordered_map<std::string, std::unique_ptr<KvBackend>> backends_;
     bool use_file_backend_ = false;
+
+#ifdef LOGOS_CORE_AVAILABLE
+    LogosAPI* logosAPI = nullptr;
+#endif
 };

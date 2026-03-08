@@ -47,6 +47,7 @@ target_link_libraries(kv_module PRIVATE
 
 if(NOT "${LOGOS_CORE_ROOT}" STREQUAL "")
     target_link_libraries(kv_module PRIVATE logos_cpp_sdk logos_core)
+    target_compile_definitions(kv_module PRIVATE LOGOS_CORE_AVAILABLE)
 endif()
 
 # ── Compile definitions ──────────────────────────────────────────────────────

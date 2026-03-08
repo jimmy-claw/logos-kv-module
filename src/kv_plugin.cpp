@@ -9,15 +9,16 @@ KvPlugin::KvPlugin(QObject *parent)
 
 // ── Logos Core lifecycle ─────────────────────────────────────────────────────
 
+#ifdef LOGOS_CORE_AVAILABLE
 void KvPlugin::initLogos(LogosAPI* logosAPIInstance) {
     logosAPI = logosAPIInstance;
-
     if (logosAPI) {
         const QString dirProp = logosAPI->property("kvDataDir").toString();
         if (!dirProp.isEmpty())
             setDataDir(dirProp);
     }
 }
+#endif
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -50,9 +51,7 @@ KvBackend &KvPlugin::backendForNamespace(const std::string &ns) {
 // ── IKvModule operations ─────────────────────────────────────────────────────
 
 void KvPlugin::kvSet(const QString& ns, const QString& key, const QByteArray& value) {
-    auto nsStd = ns.toStdString();
-    auto keyStd = key.toStdString();
-    backendForNamespace(nsStd).set(keyStd, std::string(value.constData(), value.size()));
+    backendForNamespace(ns.toStdString()).set(key.toStdString(), std::string(value.constData(), value.size()));
     emit kvChanged(ns, key);
 }
 
