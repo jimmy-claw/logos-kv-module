@@ -44,6 +44,10 @@ endif()
 
 # ── Plugin target ─────────────────────────────────────────────────────────────
 qt_add_plugin(kv_module_plugin CLASS_NAME KvPlugin)
+set_target_properties(kv_module_plugin PROPERTIES
+    PREFIX ""
+    OUTPUT_NAME "kv_module_plugin"
+)
 
 target_sources(kv_module_plugin PRIVATE
     src/kv_plugin.cpp
