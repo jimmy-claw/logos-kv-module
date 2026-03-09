@@ -2,6 +2,9 @@
 
 All notable changes to logos-kv-module are documented here.
 
+## [v0.0.1] - 2026-03-09
+
+
 ## [v0.1.0] - 2026-03-09
 
 - feat: initial release — Memory, File, RocksDB, SQLite backends
