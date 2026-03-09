@@ -2,6 +2,9 @@
 
 All notable changes to logos-kv-module are documented here.
 
+## [v0.0.3] - 2026-03-09
+
+- 95497b5 fix: add token to checkout so workflow can push CHANGELOG update
 ## [v0.0.2] - 2026-03-09
 
 - b62d26e fix: use listAll() instead of list(ns,) — empty arg dropped by logoscore
