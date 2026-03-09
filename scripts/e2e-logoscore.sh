@@ -117,7 +117,7 @@ pass "modules directory: $MODULES_DIR"
 
 banner "Test 1: kv_module.version()"
 
-OUTPUT=$(logoscore_call "kv_module" "kv_module.version()")
+OUTPUT=$(logoscore_call "kv_module_plugin" "kv_module.version()")
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
@@ -131,7 +131,7 @@ fi
 
 banner "Test 2: kv_module.set(\"test_ns\", \"key1\", \"hello\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("test_ns", "key1", "hello")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.set("test_ns", "key1", "hello")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     pass "set(test_ns, key1, hello)"
@@ -144,7 +144,7 @@ fi
 
 banner "Test 3: kv_module.get(\"test_ns\", \"key1\") — expect \"hello\""
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("test_ns", "key1")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.get("test_ns", "key1")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
@@ -162,7 +162,7 @@ fi
 
 banner "Test 4: kv_module.set(\"test_ns\", \"key2\", \"world\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("test_ns", "key2", "world")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.set("test_ns", "key2", "world")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     pass "set(test_ns, key2, world)"
@@ -175,7 +175,7 @@ fi
 
 banner "Test 5: kv_module.list(\"test_ns\", \"\") — expect key1 and key2"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.list("test_ns", "")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.list("test_ns", "")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
@@ -197,7 +197,7 @@ fi
 
 banner "Test 6: kv_module.remove(\"test_ns\", \"key1\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.remove("test_ns", "key1")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.remove("test_ns", "key1")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     pass "remove(test_ns, key1)"
@@ -210,7 +210,7 @@ fi
 
 banner "Test 7: kv_module.get(\"test_ns\", \"key1\") — expect empty after remove"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("test_ns", "key1")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.get("test_ns", "key1")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
@@ -229,7 +229,7 @@ fi
 
 banner "Test 8: kv_module.clear(\"test_ns\")"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.clear("test_ns")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.clear("test_ns")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     pass "clear(test_ns)"
@@ -242,7 +242,7 @@ fi
 
 banner "Test 9: kv_module.list(\"test_ns\", \"\") — expect empty after clear"
 
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.list("test_ns", "")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.list("test_ns", "")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     RESULT=$(extract_result "$OUTPUT")
@@ -262,13 +262,13 @@ fi
 banner "Test 10: Namespace isolation — key in ns \"a\" not visible in ns \"b\""
 
 # Set a key in namespace "a"
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("ns_a", "secret", "hidden")')
+OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.set("ns_a", "secret", "hidden")')
 
 if echo "$OUTPUT" | grep -q "Method call successful"; then
     pass "set(ns_a, secret, hidden)"
 
     # Try to read it from namespace "b" — should be empty
-    OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("ns_b", "secret")')
+    OUTPUT=$(logoscore_call "kv_module_plugin" 'kv_module.get("ns_b", "secret")')
 
     if echo "$OUTPUT" | grep -q "Method call successful"; then
         RESULT=$(extract_result "$OUTPUT")
@@ -283,7 +283,7 @@ if echo "$OUTPUT" | grep -q "Method call successful"; then
     fi
 
     # Cleanup: clear namespace "a"
-    logoscore_call "kv_module" 'kv_module.clear("ns_a")' >/dev/null 2>&1
+    logoscore_call "kv_module_plugin" 'kv_module.clear("ns_a")' >/dev/null 2>&1
 else
     fail "namespace isolation setup" "could not set key in ns_a"
     echo "$OUTPUT" | tail -5 | sed 's/^/      /'
