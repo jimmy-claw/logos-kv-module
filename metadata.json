@@ -1,10 +1,19 @@
 {
   "name": "kv_module",
   "version": "0.1.0",
+  "description": "Local key-value storage module for Logos Core with swappable backends",
+  "author": "Jimmy Claw",
   "type": "core",
   "category": "storage",
-  "description": "Local key-value storage module for Logos Core with swappable backends",
-  "main": "kv_module_plugin",
+  "main": {
+    "linux-x86_64": "kv_module_plugin.so",
+    "linux-amd64": "kv_module_plugin.so",
+    "linux-arm64": "kv_module_plugin.so",
+    "linux-aarch64": "kv_module_plugin.so",
+    "darwin-x86_64": "kv_module_plugin.dylib",
+    "darwin-arm64": "kv_module_plugin.dylib",
+    "windows-x86_64": "kv_module_plugin.dll"
+  },
   "dependencies": [],
   "capabilities": [],
   "backends": [
