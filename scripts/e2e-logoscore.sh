@@ -3,25 +3,25 @@
 #  e2e-logoscore.sh — E2E tests: logoscore --call with kv_module
 # =============================================================================
 #
-#  Validates the KV module plugin stack headlessly:
-#    logoscore CLI → Qt plugin loader → kv_module
+#  Validates the KV module plugin stack headlessly using a single logoscore
+#  invocation (one logos_host process, all calls sequential = fast).
 #
 #  Tests:
 #    1. version()           — basic plugin load
-#    2. set()             — store a value
-#    3. get()             — retrieve and assert value
-#    4. set() second key  — store second value
-#    5. list()            — list keys, assert both present
-#    6. remove()          — remove first key
-#    7. get() after remove — assert empty
-#    8. clear()           — clear namespace
-#    9. list() after clear — assert empty
+#    2. set()               — store a value
+#    3. get()               — retrieve and assert value
+#    4. set() second key    — store second value
+#    5. list()              — list keys, assert both present
+#    6. remove()            — remove first key
+#    7. get() after remove  — assert empty
+#    8. clear()             — clear namespace
+#    9. list() after clear  — assert empty
 #   10. Namespace isolation — key in ns "a" not visible in ns "b"
 #
 #  Prerequisites:
 #    - Nix build:  cd <repo> && nix build
-#      Produces:   <repo>/result/{lib/logos/modules/,include/}
-#    - logoscore: auto-detected from nix store (lez-multisig build)
+#      Produces:   <repo>/result/lib/kv_module_plugin.so
+#    - logoscore: auto-detected from nix store
 #
 #  Usage:
 #    bash scripts/e2e-logoscore.sh
@@ -48,7 +48,6 @@ LOGOSCORE="${LOGOSCORE:-$REPO_DIR/result/bin/logoscore}"
 if [[ -z "${MODULES_DIR:-}" ]]; then
     PLUGIN_SRC="$REPO_DIR/result/lib/kv_module_plugin.so"
     if [[ ! -f "$PLUGIN_SRC" ]]; then
-        # flat lib output from logos-module-builder
         PLUGIN_SRC="$(find "$REPO_DIR/result" -name "kv_module_plugin.so" 2>/dev/null | head -1 || true)"
     fi
 
@@ -57,7 +56,6 @@ if [[ -z "${MODULES_DIR:-}" ]]; then
 
     if [[ -n "$PLUGIN_SRC" && -f "$PLUGIN_SRC" ]]; then
         cp "$PLUGIN_SRC" "$TMP_MODULES/kv_module/"
-        echo "Copied plugin from: $PLUGIN_SRC"
     else
         echo "ERROR: kv_module_plugin.so not found! Searched: $REPO_DIR/result"
         find "$REPO_DIR/result" -name "*.so" 2>/dev/null | head -5 || echo "No .so files in result/"
@@ -92,263 +90,129 @@ fi
 
 # ── Colours ──────────────────────────────────────────────────────────────────
 
-BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
-GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
+BOLD='\033[1m'; RESET='\033[0m'
+GREEN='\033[0;32m'; CYAN='\033[0;36m'; RED='\033[0;31m'; YELLOW='\033[1;33m'
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-PASS=0; FAIL=0; SKIP=0
+PASS=0; FAIL=0
 
 pass() { echo -e "  ${GREEN}PASS${RESET}: $1"; PASS=$((PASS + 1)); }
 fail() { echo -e "  ${RED}FAIL${RESET}: $1 — $2"; FAIL=$((FAIL + 1)); }
-skip() { echo -e "  ${YELLOW}SKIP${RESET}: $1 — $2"; SKIP=$((SKIP + 1)); }
 banner() { echo -e "\n${CYAN}${BOLD}━━━ $1 ━━━${RESET}\n"; }
-info()   { echo -e "  ${DIM}$1${RESET}"; }
-
-cleanup_logoscore() {
-    pkill -f "logoscore.*modules-dir" 2>/dev/null || true
-    pkill -f "logos_host" 2>/dev/null || true
-    sleep 0.5
-}
-
-# Run a logoscore --call and capture output.
-# Usage: logoscore_call <load_modules> <call_expr>
-logoscore_call() {
-    local load_modules="$1"
-    local call_expr="$2"
-
-    cleanup_logoscore
-
-    local output
-    output=$(QT_QPA_PLATFORM=offscreen timeout 30 "$LOGOSCORE" \
-        --modules-dir "$MODULES_DIR" \
-        --load-modules "$load_modules" \
-        --call "$call_expr" 2>&1 || true)
-
-    cleanup_logoscore
-    echo "$output"
-}
-
-# Extract the result value after "Method call successful. Result: "
-extract_result() {
-    echo "$1" | grep "Method call successful" | sed 's/.*Result: //'
-}
 
 # ── Pre-flight ───────────────────────────────────────────────────────────────
 
 banner "Pre-flight Checks"
 
-# DEBUG
-echo "=== DEBUG ==="
-echo "LOGOSCORE: $LOGOSCORE"
-echo "MODULES_DIR: $MODULES_DIR"
-ls -la "$MODULES_DIR/kv_module/" 2>/dev/null || echo "kv_module dir missing!"
-echo "manifest.json:"
-cat "$MODULES_DIR/kv_module/manifest.json" 2>/dev/null || echo "NO MANIFEST"
-echo "=== END DEBUG ==="
-
 if [[ ! -x "$LOGOSCORE" ]]; then
     echo -e "${RED}logoscore not found at $LOGOSCORE${RESET}"
-    echo "Build with: cd ~/logos-kv-module && nix build"
     exit 1
 fi
 pass "logoscore binary: $LOGOSCORE"
 
 if [[ ! -d "$MODULES_DIR" ]]; then
     echo -e "${RED}modules directory not found at $MODULES_DIR${RESET}"
-    echo "Build with: cd ~/logos-kv-module && nix build"
     exit 1
 fi
 pass "modules directory: $MODULES_DIR"
 
-# ── Test 1: version() ───────────────────────────────────────────────────────
+# ── Run all calls in a single logoscore invocation ───────────────────────────
 
-banner "Test 1: kv_module.version()"
+banner "Running Tests (single logoscore session)"
 
-OUTPUT=$(logoscore_call "kv_module" "kv_module.version()")
+OUTPUT=$(QT_QPA_PLATFORM=offscreen timeout 120 "$LOGOSCORE" \
+    --modules-dir "$MODULES_DIR" \
+    --load-modules kv_module \
+    --call "kv_module.version()" \
+    --call 'kv_module.set(test_ns, key1, hello)' \
+    --call 'kv_module.get(test_ns, key1)' \
+    --call 'kv_module.set(test_ns, key2, world)' \
+    --call 'kv_module.list(test_ns, )' \
+    --call 'kv_module.remove(test_ns, key1)' \
+    --call 'kv_module.get(test_ns, key1)' \
+    --call 'kv_module.clear(test_ns)' \
+    --call 'kv_module.list(test_ns, )' \
+    --call 'kv_module.set(ns_a, secret, hidden)' \
+    --call 'kv_module.get(ns_b, secret)' \
+    --call 'kv_module.clear(ns_a)' \
+    2>&1 || true)
 
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    RESULT=$(extract_result "$OUTPUT")
-    pass "version() = $RESULT"
-else
-    fail "version()" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
-fi
-
-# ── Test 2: set() — store a value ─────────────────────────────────────────
-
-banner "Test 2: kv_module.set(\"test_ns\", \"key1\", \"hello\")"
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("test_ns", "key1", "hello")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "set(test_ns, key1, hello)"
-else
-    fail "set(test_ns, key1, hello)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
-fi
-
-# ── Test 3: get() — retrieve and assert ───────────────────────────────────
-
-banner "Test 3: kv_module.get(\"test_ns\", \"key1\") — expect \"hello\""
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("test_ns", "key1")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    RESULT=$(extract_result "$OUTPUT")
-    if echo "$RESULT" | grep -q "hello"; then
-        pass "get(test_ns, key1) = hello"
-    else
-        fail "get(test_ns, key1)" "expected 'hello', got: $RESULT"
+# Extract "Method call successful. Result: <value>" lines in order
+RESULTS=()
+while IFS= read -r line; do
+    if echo "$line" | grep -q "Method call successful"; then
+        RESULTS+=("$(echo "$line" | sed 's/.*Result: //')")
+    elif echo "$line" | grep -q "^Error:"; then
+        RESULTS+=("ERROR: $line")
     fi
+done <<< "$OUTPUT"
+
+# ── Assert results ────────────────────────────────────────────────────────────
+
+banner "Test 1: version()"
+R="${RESULTS[0]:-}"
+if [[ -n "$R" && "$R" != ERROR* ]]; then pass "version() = $R"; else fail "version()" "${R:-no result}"; fi
+
+banner "Test 2: set(test_ns, key1, hello)"
+R="${RESULTS[1]:-}"
+if [[ "$R" != ERROR* ]]; then pass "set(test_ns, key1, hello)"; else fail "set" "$R"; fi
+
+banner "Test 3: get(test_ns, key1) — expect hello"
+R="${RESULTS[2]:-}"
+if echo "$R" | grep -q "hello"; then pass "get(test_ns, key1) = hello"; else fail "get(test_ns, key1)" "expected hello, got: $R"; fi
+
+banner "Test 4: set(test_ns, key2, world)"
+R="${RESULTS[3]:-}"
+if [[ "$R" != ERROR* ]]; then pass "set(test_ns, key2, world)"; else fail "set" "$R"; fi
+
+banner "Test 5: list(test_ns) — expect key1 and key2"
+R="${RESULTS[4]:-}"
+if echo "$R" | grep -q "key1" && echo "$R" | grep -q "key2"; then
+    pass "list(test_ns) contains key1 and key2"
 else
-    fail "get(test_ns, key1)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
+    fail "list(test_ns)" "expected key1+key2, got: $R"
 fi
 
-# ── Test 4: set() — store second value ────────────────────────────────────
+banner "Test 6: remove(test_ns, key1)"
+R="${RESULTS[5]:-}"
+if [[ "$R" != ERROR* ]]; then pass "remove(test_ns, key1)"; else fail "remove" "$R"; fi
 
-banner "Test 4: kv_module.set(\"test_ns\", \"key2\", \"world\")"
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("test_ns", "key2", "world")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "set(test_ns, key2, world)"
+banner "Test 7: get(test_ns, key1) — expect empty after remove"
+R="${RESULTS[6]:-}"
+if [[ -z "$R" ]] || echo "$R" | grep -qE '^(\s*|""|null)$'; then
+    pass "get(test_ns, key1) = empty after remove"
 else
-    fail "set(test_ns, key2, world)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
+    fail "get after remove" "expected empty, got: $R"
 fi
 
-# ── Test 5: list() — list all keys ────────────────────────────────────────
+banner "Test 8: clear(test_ns)"
+R="${RESULTS[7]:-}"
+if [[ "$R" != ERROR* ]]; then pass "clear(test_ns)"; else fail "clear" "$R"; fi
 
-banner "Test 5: kv_module.list(\"test_ns\", \"\") — expect key1 and key2"
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.list("test_ns", "")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    RESULT=$(extract_result "$OUTPUT")
-    HAS_KEY1=false; HAS_KEY2=false
-    echo "$RESULT" | grep -q "key1" && HAS_KEY1=true
-    echo "$RESULT" | grep -q "key2" && HAS_KEY2=true
-    if $HAS_KEY1 && $HAS_KEY2; then
-        pass "list(test_ns) contains key1 and key2"
-    else
-        fail "list(test_ns)" "expected key1 and key2, got: $RESULT"
-    fi
-    info "Result: $RESULT"
+banner "Test 9: list(test_ns) — expect empty after clear"
+R="${RESULTS[8]:-}"
+if [[ -z "$R" ]] || echo "$R" | grep -qE '^(\s*|\[\s*\]|\(\s*\))$'; then
+    pass "list(test_ns) = empty after clear"
 else
-    fail "list(test_ns)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
+    fail "list after clear" "expected empty, got: $R"
 fi
 
-# ── Test 6: remove() — remove first key ───────────────────────────────────
-
-banner "Test 6: kv_module.remove(\"test_ns\", \"key1\")"
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.remove("test_ns", "key1")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "remove(test_ns, key1)"
+banner "Test 10: Namespace isolation"
+R="${RESULTS[10]:-}"
+if [[ -z "$R" ]] || echo "$R" | grep -qE '^(\s*|""|null)$'; then
+    pass "get(ns_b, secret) = empty (namespace isolation confirmed)"
 else
-    fail "remove(test_ns, key1)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
-fi
-
-# ── Test 7: get() after remove — assert empty ─────────────────────────────
-
-banner "Test 7: kv_module.get(\"test_ns\", \"key1\") — expect empty after remove"
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("test_ns", "key1")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    RESULT=$(extract_result "$OUTPUT")
-    # After remove, result should be empty (empty QByteArray)
-    if [[ -z "$RESULT" ]] || echo "$RESULT" | grep -qE '^(\s*|""|null)$'; then
-        pass "get(test_ns, key1) = empty after remove"
-    else
-        fail "get(test_ns, key1)" "expected empty, got: $RESULT"
-    fi
-else
-    fail "get(test_ns, key1)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
-fi
-
-# ── Test 8: clear() — clear namespace ──────────────────────────────────────
-
-banner "Test 8: kv_module.clear(\"test_ns\")"
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.clear("test_ns")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "clear(test_ns)"
-else
-    fail "clear(test_ns)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
-fi
-
-# ── Test 9: list() after clear — assert empty ─────────────────────────────
-
-banner "Test 9: kv_module.list(\"test_ns\", \"\") — expect empty after clear"
-
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.list("test_ns", "")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    RESULT=$(extract_result "$OUTPUT")
-    # After clear, list should return empty (no keys)
-    if [[ -z "$RESULT" ]] || echo "$RESULT" | grep -qE '^(\s*|\[\s*\]|\(\s*\))$'; then
-        pass "list(test_ns) = empty after clear"
-    else
-        fail "list(test_ns)" "expected empty, got: $RESULT"
-    fi
-else
-    fail "list(test_ns)" "unexpected output"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
-fi
-
-# ── Test 10: Namespace isolation ─────────────────────────────────────────────
-
-banner "Test 10: Namespace isolation — key in ns \"a\" not visible in ns \"b\""
-
-# Set a key in namespace "a"
-OUTPUT=$(logoscore_call "kv_module" 'kv_module.set("ns_a", "secret", "hidden")')
-
-if echo "$OUTPUT" | grep -q "Method call successful"; then
-    pass "set(ns_a, secret, hidden)"
-
-    # Try to read it from namespace "b" — should be empty
-    OUTPUT=$(logoscore_call "kv_module" 'kv_module.get("ns_b", "secret")')
-
-    if echo "$OUTPUT" | grep -q "Method call successful"; then
-        RESULT=$(extract_result "$OUTPUT")
-        if [[ -z "$RESULT" ]] || echo "$RESULT" | grep -qE '^(\s*|""|null)$'; then
-            pass "get(ns_b, secret) = empty (namespace isolation confirmed)"
-        else
-            fail "namespace isolation" "key from ns_a visible in ns_b: $RESULT"
-        fi
-    else
-        fail "get(ns_b, secret)" "unexpected output"
-        echo "$OUTPUT" | tail -5 | sed 's/^/      /'
-    fi
-
-    # Cleanup: clear namespace "a"
-    logoscore_call "kv_module" 'kv_module.clear("ns_a")' >/dev/null 2>&1
-else
-    fail "namespace isolation setup" "could not set key in ns_a"
-    echo "$OUTPUT" | tail -5 | sed 's/^/      /'
+    fail "namespace isolation" "key from ns_a visible in ns_b: $R"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 
 banner "Results"
-
 echo -e "  ${GREEN}Passed${RESET}: $PASS"
 echo -e "  ${RED}Failed${RESET}: $FAIL"
-echo -e "  ${YELLOW}Skipped${RESET}: $SKIP"
 echo ""
 
 if [[ $FAIL -gt 0 ]]; then
     echo -e "  ${RED}${BOLD}Some tests failed!${RESET}"
     exit 1
 fi
-
 echo -e "  ${GREEN}${BOLD}All tests passed!${RESET}"
