@@ -128,8 +128,14 @@ endif()
 
 # ── Install ───────────────────────────────────────────────────────────────────
 install(TARGETS kv_module_plugin
-    LIBRARY       DESTINATION lib
+    LIBRARY       DESTINATION lib/kv_module
     PUBLIC_HEADER DESTINATION include
+)
+
+# Install manifest.json (metadata.json renamed for logoscore compatibility)
+install(FILES ${CMAKE_SOURCE_DIR}/metadata.json
+    DESTINATION lib/kv_module
+    RENAME manifest.json
 )
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
