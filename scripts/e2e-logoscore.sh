@@ -126,11 +126,11 @@ OUTPUT=$(QT_QPA_PLATFORM=offscreen timeout 120 "$LOGOSCORE" \
     --call 'kv_module.set(test_ns, key1, hello)' \
     --call 'kv_module.get(test_ns, key1)' \
     --call 'kv_module.set(test_ns, key2, world)' \
-    --call 'kv_module.list(test_ns, )' \
+    --call 'kv_module.listAll(test_ns)' \
     --call 'kv_module.remove(test_ns, key1)' \
     --call 'kv_module.get(test_ns, key1)' \
     --call 'kv_module.clear(test_ns)' \
-    --call 'kv_module.list(test_ns, )' \
+    --call 'kv_module.listAll(test_ns)' \
     --call 'kv_module.set(ns_a, secret, hidden)' \
     --call 'kv_module.get(ns_b, secret)' \
     --call 'kv_module.clear(ns_a)' \
