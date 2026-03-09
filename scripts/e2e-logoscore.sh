@@ -133,6 +133,15 @@ extract_result() {
 
 banner "Pre-flight Checks"
 
+# DEBUG
+echo "=== DEBUG ==="
+echo "LOGOSCORE: $LOGOSCORE"
+echo "MODULES_DIR: $MODULES_DIR"
+ls -la "$MODULES_DIR/kv_module/" 2>/dev/null || echo "kv_module dir missing!"
+echo "manifest.json:"
+cat "$MODULES_DIR/kv_module/manifest.json" 2>/dev/null || echo "NO MANIFEST"
+echo "=== END DEBUG ==="
+
 if [[ ! -x "$LOGOSCORE" ]]; then
     echo -e "${RED}logoscore not found at $LOGOSCORE${RESET}"
     echo "Build with: cd ~/logos-kv-module && nix build"
