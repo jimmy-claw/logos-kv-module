@@ -19,8 +19,9 @@
 #   10. Namespace isolation — key in ns "a" not visible in ns "b"
 #
 #  Prerequisites:
-#    - Nix build:  cd ~/logos-kv-module && nix build
-#      Produces:   ~/logos-kv-module/result/{bin/logoscore,modules/}
+#    - Nix build:  cd <repo> && nix build
+#      Produces:   <repo>/result/{lib/logos/modules/,include/}
+#    - logoscore: auto-detected from nix store (lez-multisig build)
 #
 #  Usage:
 #    bash scripts/e2e-logoscore.sh
