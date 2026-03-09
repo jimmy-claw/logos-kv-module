@@ -32,8 +32,23 @@ export PATH="$HOME/.nix-profile/bin:$PATH"
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 
-LOGOSCORE="$HOME/logos-kv-module/result/bin/logoscore"
-MODULES_DIR="$HOME/logos-kv-module/result/modules"
+# Resolve repo root relative to this script (works regardless of where you clone)
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# logoscore: env var > nix store (lez-multisig build) > repo result/bin
+if [[ -z "${LOGOSCORE:-}" ]]; then
+    LOGOSCORE="$(find /nix/store -name logoscore -path "*/lez-multisig*" -type f 2>/dev/null | head -1 || true)"
+fi
+LOGOSCORE="${LOGOSCORE:-$REPO_DIR/result/bin/logoscore}"
+
+# modules dir: env var > result/lib/logos/modules > result/modules
+if [[ -z "${MODULES_DIR:-}" ]]; then
+    if [[ -d "$REPO_DIR/result/lib/logos/modules" ]]; then
+        MODULES_DIR="$REPO_DIR/result/lib/logos/modules"
+    else
+        MODULES_DIR="${REPO_DIR}/result/modules"
+    fi
+fi
 
 # ── Colours ──────────────────────────────────────────────────────────────────
 
