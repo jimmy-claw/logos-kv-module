@@ -4,6 +4,14 @@
   "type": "core",
   "category": "storage",
   "description": "Local key-value storage module for Logos Core with swappable backends",
-  "backends": ["memory", "file"],
+  "main": "kv_module_plugin",
+  "dependencies": [],
+  "capabilities": [],
+  "backends": [
+    "memory",
+    "file",
+    "rocksdb",
+    "sqlite"
+  ],
   "default_backend": "memory"
 }
