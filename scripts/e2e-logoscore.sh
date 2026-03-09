@@ -57,6 +57,11 @@ if [[ -z "${MODULES_DIR:-}" ]]; then
 
     if [[ -n "$PLUGIN_SRC" && -f "$PLUGIN_SRC" ]]; then
         cp "$PLUGIN_SRC" "$TMP_MODULES/kv_module/"
+        echo "Copied plugin from: $PLUGIN_SRC"
+    else
+        echo "ERROR: kv_module_plugin.so not found! Searched: $REPO_DIR/result"
+        find "$REPO_DIR/result" -name "*.so" 2>/dev/null | head -5 || echo "No .so files in result/"
+        exit 1
     fi
 
     cat > "$TMP_MODULES/kv_module/manifest.json" << 'MANIFEST_EOF'
