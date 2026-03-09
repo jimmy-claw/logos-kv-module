@@ -36,19 +36,53 @@ export PATH="$HOME/.nix-profile/bin:$PATH"
 # Resolve repo root relative to this script (works regardless of where you clone)
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# logoscore: env var > nix store (lez-multisig build) > repo result/bin
+# logoscore: env var > nix store (any logoscore binary) > repo result/bin
 if [[ -z "${LOGOSCORE:-}" ]]; then
-    LOGOSCORE="$(find /nix/store -name logoscore -path "*/lez-multisig*" -type f 2>/dev/null | head -1 || true)"
+    LOGOSCORE="$(find /nix/store -name logoscore -type f 2>/dev/null | head -1 || true)"
 fi
 LOGOSCORE="${LOGOSCORE:-$REPO_DIR/result/bin/logoscore}"
 
-# modules dir: env var > result/lib/logos/modules > result/modules
+# modules dir: build a properly structured module dir in /tmp
+# logoscore requires: <modules_dir>/<module_name>/kv_module_plugin.so + manifest.json
+# where manifest.json has "main" as a platform-keyed object
 if [[ -z "${MODULES_DIR:-}" ]]; then
-    if [[ -d "$REPO_DIR/result/lib/logos/modules" ]]; then
-        MODULES_DIR="$REPO_DIR/result/lib/logos/modules"
-    else
-        MODULES_DIR="${REPO_DIR}/result/modules"
+    PLUGIN_SRC="$REPO_DIR/result/lib/kv_module_plugin.so"
+    if [[ ! -f "$PLUGIN_SRC" ]]; then
+        # flat lib output from logos-module-builder
+        PLUGIN_SRC="$(find "$REPO_DIR/result" -name "kv_module_plugin.so" 2>/dev/null | head -1 || true)"
     fi
+
+    TMP_MODULES="/tmp/kv-modules-$$"
+    mkdir -p "$TMP_MODULES/kv_module"
+
+    if [[ -n "$PLUGIN_SRC" && -f "$PLUGIN_SRC" ]]; then
+        cp "$PLUGIN_SRC" "$TMP_MODULES/kv_module/"
+    fi
+
+    cat > "$TMP_MODULES/kv_module/manifest.json" << 'MANIFEST_EOF'
+{
+  "name": "kv_module",
+  "version": "0.1.0",
+  "description": "Local key-value storage module for Logos Core with swappable backends",
+  "author": "Jimmy Claw",
+  "type": "core",
+  "category": "storage",
+  "main": {
+    "linux-x86_64": "kv_module_plugin.so",
+    "linux-amd64": "kv_module_plugin.so",
+    "linux-arm64": "kv_module_plugin.so",
+    "linux-aarch64": "kv_module_plugin.so",
+    "darwin-x86_64": "kv_module_plugin.dylib",
+    "darwin-arm64": "kv_module_plugin.dylib",
+    "windows-x86_64": "kv_module_plugin.dll"
+  },
+  "dependencies": [],
+  "capabilities": []
+}
+MANIFEST_EOF
+
+    MODULES_DIR="$TMP_MODULES"
+    trap 'rm -rf "$TMP_MODULES"' EXIT
 fi
 
 # ── Colours ──────────────────────────────────────────────────────────────────
