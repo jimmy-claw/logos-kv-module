@@ -50,6 +50,9 @@ if(WITH_SQLITE)
     find_package(SQLite3 REQUIRED)
 endif()
 
+# ── OpenSSL (for AES-256-GCM encryption) ─────────────────────────────────────
+find_package(OpenSSL REQUIRED)
+
 # ── Plugin target ─────────────────────────────────────────────────────────────
 qt_add_plugin(kv_module_plugin CLASS_NAME KvPlugin)
 set_target_properties(kv_module_plugin PROPERTIES
@@ -81,6 +84,7 @@ target_include_directories(kv_module_plugin PRIVATE src)
 target_link_libraries(kv_module_plugin PRIVATE
     Qt6::Core
     Qt6::Qml
+    OpenSSL::Crypto
 )
 
 if(LOGOS_CORE_AVAILABLE)
