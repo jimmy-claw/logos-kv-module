@@ -217,6 +217,100 @@ TEST_P(BackendConformanceTest, ConcurrentWrites) {
     }
 }
 
+// --- Scan operations ---
+
+TEST_P(BackendConformanceTest, ScanEmptyPatternReturnsAllKeys) {
+    backend->set("user:1", "alice");
+    backend->set("user:2", "bob");
+    backend->set("item:1", "widget");
+
+    auto result = backend->scan("");
+    EXPECT_EQ(result.size(), 3u);
+}
+
+TEST_P(BackendConformanceTest, ScanFiltersBySubstring) {
+    backend->set("user:1", "alice");
+    backend->set("user:2", "bob");
+    backend->set("item:1", "widget");
+
+    auto result = backend->scan("user");
+    std::sort(result.begin(), result.end());
+
+    ASSERT_EQ(result.size(), 2u);
+    EXPECT_EQ(result[0], "user:1");
+    EXPECT_EQ(result[1], "user:2");
+}
+
+TEST_P(BackendConformanceTest, ScanNoMatchReturnsEmpty) {
+    backend->set("user:1", "alice");
+    backend->set("item:1", "widget");
+
+    auto result = backend->scan("zzz");
+    EXPECT_TRUE(result.empty());
+}
+
+TEST_P(BackendConformanceTest, ScanMatchesSubstringAnywhere) {
+    backend->set("my_user_key", "val1");
+    backend->set("admin_user", "val2");
+    backend->set("item:1", "val3");
+
+    auto result = backend->scan("user");
+    std::sort(result.begin(), result.end());
+
+    ASSERT_EQ(result.size(), 2u);
+    EXPECT_EQ(result[0], "admin_user");
+    EXPECT_EQ(result[1], "my_user_key");
+}
+
+// --- SearchValues operations ---
+
+TEST_P(BackendConformanceTest, SearchValuesFindsSubstringCaseInsensitive) {
+    backend->set("k1", "Hello World");
+    backend->set("k2", "goodbye");
+    backend->set("k3", "HELLO there");
+
+    auto result = backend->searchValues("hello");
+    std::sort(result.begin(), result.end());
+
+    ASSERT_EQ(result.size(), 2u);
+    EXPECT_EQ(result[0].first, "k1");
+    EXPECT_EQ(result[0].second, "Hello World");
+    EXPECT_EQ(result[1].first, "k3");
+    EXPECT_EQ(result[1].second, "HELLO there");
+}
+
+TEST_P(BackendConformanceTest, SearchValuesNoMatchReturnsEmpty) {
+    backend->set("k1", "Hello World");
+    backend->set("k2", "goodbye");
+
+    auto result = backend->searchValues("zzz");
+    EXPECT_TRUE(result.empty());
+}
+
+TEST_P(BackendConformanceTest, SearchValuesMultipleMatches) {
+    backend->set("event:1", "Team Meeting at 10am");
+    backend->set("event:2", "Lunch meeting with Bob");
+    backend->set("event:3", "Dentist appointment");
+
+    auto result = backend->searchValues("meeting");
+    ASSERT_EQ(result.size(), 2u);
+
+    // Verify both matching entries are present
+    std::sort(result.begin(), result.end());
+    EXPECT_EQ(result[0].first, "event:1");
+    EXPECT_EQ(result[0].second, "Team Meeting at 10am");
+    EXPECT_EQ(result[1].first, "event:2");
+    EXPECT_EQ(result[1].second, "Lunch meeting with Bob");
+}
+
+TEST_P(BackendConformanceTest, SearchValuesEmptySubstringReturnsAll) {
+    backend->set("k1", "value1");
+    backend->set("k2", "value2");
+
+    auto result = backend->searchValues("");
+    EXPECT_EQ(result.size(), 2u);
+}
+
 static auto backendValues() {
     std::vector<std::string> backends = {"MemoryBackend", "FileBackend"};
 #ifdef HAVE_ROCKSDB

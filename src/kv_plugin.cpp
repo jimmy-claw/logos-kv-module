@@ -212,3 +212,53 @@ void KvPlugin::clear(const QString& ns) {
     backendForNamespace(ns.toStdString()).clear();
     emit changed(ns, QString());
 }
+
+QString KvPlugin::scan(const QString& ns, const QString& pattern) {
+    auto keys = backendForNamespace(ns.toStdString()).scan(pattern.toStdString());
+    QString result = QStringLiteral("[");
+    bool first = true;
+    for (const auto &k : keys) {
+        if (!first) result += ',';
+        result += '"' + QString::fromStdString(k) + '"';
+        first = false;
+    }
+    result += ']';
+    return result;
+}
+
+QString KvPlugin::searchValues(const QString& ns, const QString& substring) {
+    auto encIt = encryption_keys_.find(ns);
+    bool encrypted = (encIt != encryption_keys_.end());
+
+    // For encrypted namespaces, get all entries and decrypt before matching
+    auto entries = encrypted
+        ? backendForNamespace(ns.toStdString()).searchValues(std::string())
+        : backendForNamespace(ns.toStdString()).searchValues(substring.toStdString());
+
+    QString result = QStringLiteral("[");
+    bool first = true;
+    for (const auto &[k, v] : entries) {
+        QString value;
+        if (encrypted) {
+            QByteArray decrypted = decrypt(encIt.value(), QByteArray::fromStdString(v));
+            if (decrypted.isEmpty())
+                continue;
+            value = QString::fromUtf8(decrypted);
+            if (!value.contains(substring, Qt::CaseInsensitive))
+                continue;
+        } else {
+            value = QString::fromStdString(v);
+        }
+        if (!first) result += ',';
+        // Escape quotes in key and value for JSON safety
+        QString escapedKey = QString::fromStdString(k);
+        escapedKey.replace('\\', QStringLiteral("\\\\")).replace('"', QStringLiteral("\\\""));
+        value.replace('\\', QStringLiteral("\\\\")).replace('"', QStringLiteral("\\\""));
+        result += QStringLiteral("{\"key\":\"") + escapedKey
+                + QStringLiteral("\",\"value\":\"") + value
+                + QStringLiteral("\"}");
+        first = false;
+    }
+    result += ']';
+    return result;
+}

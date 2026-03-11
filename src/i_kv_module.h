@@ -27,6 +27,11 @@ public:
     virtual QString list(const QString& ns, const QString& prefix) = 0;
     virtual QString listAll(const QString& ns) = 0;
     virtual void clear(const QString& ns) = 0;
+
+    // ── Search Operations ───────────────────────────────────────────────────
+
+    virtual QString scan(const QString& ns, const QString& pattern) = 0;
+    virtual QString searchValues(const QString& ns, const QString& substring) = 0;
 };
 
 #define IKvModule_iid "com.logos.module.IKvModule"

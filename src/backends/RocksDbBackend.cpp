@@ -1,9 +1,24 @@
 #include "RocksDbBackend.h"
 
+#include <algorithm>
+#include <cctype>
 #include <rocksdb/db.h>
 #include <rocksdb/iterator.h>
 #include <rocksdb/write_batch.h>
 #include <stdexcept>
+
+namespace {
+bool containsCaseInsensitive(const std::string &haystack, const std::string &needle) {
+    if (needle.empty()) return true;
+    auto it = std::search(haystack.begin(), haystack.end(),
+                          needle.begin(), needle.end(),
+                          [](char a, char b) {
+                              return std::tolower(static_cast<unsigned char>(a)) ==
+                                     std::tolower(static_cast<unsigned char>(b));
+                          });
+    return it != haystack.end();
+}
+} // namespace
 
 RocksDbBackend::RocksDbBackend(std::filesystem::path db_path)
     : db_path_(std::move(db_path)) {
@@ -82,4 +97,30 @@ void RocksDbBackend::clear() {
     if (!status.ok()) {
         throw std::runtime_error("RocksDB clear failed: " + status.ToString());
     }
+}
+
+std::vector<std::string> RocksDbBackend::scan(const std::string &pattern) {
+    std::vector<std::string> result;
+    std::unique_ptr<rocksdb::Iterator> it(
+        db_->NewIterator(rocksdb::ReadOptions()));
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        std::string key(it->key().data(), it->key().size());
+        if (pattern.empty() || key.find(pattern) != std::string::npos)
+            result.push_back(std::move(key));
+    }
+    return result;
+}
+
+std::vector<std::pair<std::string, std::string>>
+RocksDbBackend::searchValues(const std::string &substring) {
+    std::vector<std::pair<std::string, std::string>> result;
+    std::unique_ptr<rocksdb::Iterator> it(
+        db_->NewIterator(rocksdb::ReadOptions()));
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        std::string val(it->value().data(), it->value().size());
+        if (containsCaseInsensitive(val, substring))
+            result.emplace_back(
+                std::string(it->key().data(), it->key().size()), std::move(val));
+    }
+    return result;
 }

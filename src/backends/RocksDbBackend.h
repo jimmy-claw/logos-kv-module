@@ -21,6 +21,10 @@ public:
     std::vector<std::string> list(const std::string &prefix) override;
     void clear() override;
 
+    std::vector<std::string> scan(const std::string &pattern) override;
+    std::vector<std::pair<std::string, std::string>>
+        searchValues(const std::string &substring) override;
+
 private:
     std::filesystem::path db_path_;
     rocksdb::DB *db_ = nullptr;

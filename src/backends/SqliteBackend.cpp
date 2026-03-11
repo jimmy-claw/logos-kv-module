@@ -197,3 +197,96 @@ void SqliteBackend::clear() {
                                  sqlite3_errmsg(db_));
     }
 }
+
+std::vector<std::string> SqliteBackend::scan(const std::string &pattern) {
+    std::lock_guard lock(mutex_);
+    std::vector<std::string> result;
+
+    sqlite3_stmt *stmt = nullptr;
+    std::string like = "%" + pattern + "%";
+    int rc;
+
+    if (pattern.empty()) {
+        rc = sqlite3_prepare_v2(db_, "SELECT key FROM kv ORDER BY key", -1,
+                                &stmt, nullptr);
+    } else {
+        rc = sqlite3_prepare_v2(db_,
+            "SELECT key FROM kv WHERE key LIKE ? ORDER BY key",
+            -1, &stmt, nullptr);
+        if (rc == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, like.data(),
+                              static_cast<int>(like.size()), SQLITE_STATIC);
+        }
+    }
+
+    if (rc != SQLITE_OK) {
+        throw std::runtime_error(std::string("SQLite scan prepare failed: ") +
+                                 sqlite3_errmsg(db_));
+    }
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const char *key =
+            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        int len = sqlite3_column_bytes(stmt, 0);
+        result.emplace_back(key, static_cast<size_t>(len));
+    }
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) {
+        throw std::runtime_error(std::string("SQLite scan failed: ") +
+                                 sqlite3_errmsg(db_));
+    }
+
+    return result;
+}
+
+std::vector<std::pair<std::string, std::string>>
+SqliteBackend::searchValues(const std::string &substring) {
+    std::lock_guard lock(mutex_);
+    std::vector<std::pair<std::string, std::string>> result;
+
+    sqlite3_stmt *stmt = nullptr;
+    std::string like = "%" + substring + "%";
+    int rc;
+
+    if (substring.empty()) {
+        rc = sqlite3_prepare_v2(db_,
+            "SELECT key, value FROM kv ORDER BY key",
+            -1, &stmt, nullptr);
+    } else {
+        rc = sqlite3_prepare_v2(db_,
+            "SELECT key, value FROM kv WHERE value LIKE ? ORDER BY key",
+            -1, &stmt, nullptr);
+        if (rc == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, like.data(),
+                              static_cast<int>(like.size()), SQLITE_STATIC);
+        }
+    }
+
+    if (rc != SQLITE_OK) {
+        throw std::runtime_error(
+            std::string("SQLite searchValues prepare failed: ") +
+            sqlite3_errmsg(db_));
+    }
+
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const char *key =
+            reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        int klen = sqlite3_column_bytes(stmt, 0);
+        const void *blob = sqlite3_column_blob(stmt, 1);
+        int vlen = sqlite3_column_bytes(stmt, 1);
+        result.emplace_back(
+            std::string(key, static_cast<size_t>(klen)),
+            std::string(static_cast<const char *>(blob),
+                        static_cast<size_t>(vlen)));
+    }
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) {
+        throw std::runtime_error(
+            std::string("SQLite searchValues failed: ") +
+            sqlite3_errmsg(db_));
+    }
+
+    return result;
+}

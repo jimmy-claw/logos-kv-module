@@ -1,5 +1,7 @@
 #include "FileBackend.h"
 
+#include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
@@ -111,6 +113,17 @@ std::string toJson(const std::unordered_map<std::string, std::string> &map) {
     return out.str();
 }
 
+bool containsCaseInsensitive(const std::string &haystack, const std::string &needle) {
+    if (needle.empty()) return true;
+    auto it = std::search(haystack.begin(), haystack.end(),
+                          needle.begin(), needle.end(),
+                          [](char a, char b) {
+                              return std::tolower(static_cast<unsigned char>(a)) ==
+                                     std::tolower(static_cast<unsigned char>(b));
+                          });
+    return it != haystack.end();
+}
+
 } // anonymous namespace
 
 FileBackend::FileBackend(std::filesystem::path data_dir)
@@ -182,4 +195,27 @@ std::vector<std::string> FileBackend::list(const std::string &prefix) {
 void FileBackend::clear() {
     std::lock_guard lock(mutex_);
     save({});
+}
+
+std::vector<std::string> FileBackend::scan(const std::string &pattern) {
+    std::lock_guard lock(mutex_);
+    auto data = load();
+    std::vector<std::string> result;
+    for (const auto &[k, v] : data) {
+        if (pattern.empty() || k.find(pattern) != std::string::npos)
+            result.push_back(k);
+    }
+    return result;
+}
+
+std::vector<std::pair<std::string, std::string>>
+FileBackend::searchValues(const std::string &substring) {
+    std::lock_guard lock(mutex_);
+    auto data = load();
+    std::vector<std::pair<std::string, std::string>> result;
+    for (const auto &[k, v] : data) {
+        if (containsCaseInsensitive(v, substring))
+            result.emplace_back(k, v);
+    }
+    return result;
 }
