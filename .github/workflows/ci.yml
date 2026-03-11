@@ -74,7 +74,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake qt6-base-dev qt6-declarative-dev
+          sudo apt-get install -y cmake qt6-base-dev qt6-declarative-dev libssl-dev
 
       - name: Configure
         run: cmake -S . -B build-plugin
