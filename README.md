@@ -28,9 +28,28 @@ QString  list(QString ns, QString prefix);    // returns JSON array
 QString  listAll(QString ns);                 // list with empty prefix
 void     clear(QString ns);
 QString  version();
+
+// Optional per-namespace encryption (AES-256-GCM)
+void     setEncryptionKey(QString ns, QString keyHex);
 ```
 
 Namespacing ensures modules can't read each other's data.
+
+### Encryption
+
+Optional AES-256-GCM encryption can be enabled per namespace. When a key is set, `set()` encrypts values before storing and `get()` decrypts them transparently.
+
+```cpp
+// keyHex: 64 hex characters representing a 32-byte AES-256 key
+kv_module.setEncryptionKey("myapp", "0123456789abcdef...");
+kv_module.set("myapp", "secret", "sensitive data");  // stored encrypted
+kv_module.get("myapp", "secret");                     // returns "sensitive data"
+```
+
+- Keys are held in memory only — never persisted by kv_module
+- Caller is responsible for key derivation (e.g. PBKDF2 from user password)
+- Namespaces without a key continue to work as plaintext (backward compatible)
+- Stored format: `base64(nonce[12] + ciphertext + tag[16])`
 
 ## Building with Nix
 

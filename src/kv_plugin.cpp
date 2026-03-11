@@ -10,6 +10,9 @@
 #include <QDebug>
 #include <filesystem>
 
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+
 KvPlugin::KvPlugin(QObject *parent)
     : QObject(parent) {}
 
@@ -71,10 +74,101 @@ KvBackend &KvPlugin::backendForNamespace(const std::string &ns) {
     return ref;
 }
 
+// ── Encryption ───────────────────────────────────────────────────────────────
+
+void KvPlugin::setEncryptionKey(const QString& ns, const QString& keyHex) {
+    QByteArray key = QByteArray::fromHex(keyHex.toLatin1());
+    if (key.size() != 32) {
+        qWarning() << "KvPlugin::setEncryptionKey: key must be 64 hex chars (32 bytes), got"
+                   << keyHex.size() << "hex chars";
+        return;
+    }
+    encryption_keys_[ns] = key;
+}
+
+QByteArray KvPlugin::encrypt(const QByteArray& key, const QByteArray& plaintext) const {
+    constexpr int NONCE_LEN = 12;
+    constexpr int TAG_LEN = 16;
+
+    QByteArray nonce(NONCE_LEN, '\0');
+    RAND_bytes(reinterpret_cast<unsigned char*>(nonce.data()), NONCE_LEN);
+
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) return {};
+
+    QByteArray ciphertext(plaintext.size(), '\0');
+    QByteArray tag(TAG_LEN, '\0');
+    int outLen = 0;
+
+    bool ok = EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr)
+           && EVP_EncryptInit_ex(ctx, nullptr, nullptr,
+                  reinterpret_cast<const unsigned char*>(key.constData()),
+                  reinterpret_cast<const unsigned char*>(nonce.constData()))
+           && EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char*>(ciphertext.data()),
+                  &outLen, reinterpret_cast<const unsigned char*>(plaintext.constData()),
+                  plaintext.size())
+           && EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(ciphertext.data()) + outLen, &outLen)
+           && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_LEN,
+                  reinterpret_cast<unsigned char*>(tag.data()));
+
+    EVP_CIPHER_CTX_free(ctx);
+    if (!ok) return {};
+
+    // Format: nonce(12) + ciphertext + tag(16), then base64
+    QByteArray result = nonce + ciphertext + tag;
+    return result.toBase64();
+}
+
+QByteArray KvPlugin::decrypt(const QByteArray& key, const QByteArray& ciphertext) const {
+    constexpr int NONCE_LEN = 12;
+    constexpr int TAG_LEN = 16;
+
+    QByteArray raw = QByteArray::fromBase64(ciphertext);
+    if (raw.size() < NONCE_LEN + TAG_LEN) return {};
+
+    QByteArray nonce = raw.left(NONCE_LEN);
+    QByteArray tag = raw.right(TAG_LEN);
+    QByteArray encrypted = raw.mid(NONCE_LEN, raw.size() - NONCE_LEN - TAG_LEN);
+
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) return {};
+
+    QByteArray plaintext(encrypted.size(), '\0');
+    int outLen = 0;
+
+    bool ok = EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr)
+           && EVP_DecryptInit_ex(ctx, nullptr, nullptr,
+                  reinterpret_cast<const unsigned char*>(key.constData()),
+                  reinterpret_cast<const unsigned char*>(nonce.constData()))
+           && EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char*>(plaintext.data()),
+                  &outLen, reinterpret_cast<const unsigned char*>(encrypted.constData()),
+                  encrypted.size())
+           && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_LEN,
+                  const_cast<char*>(tag.constData()));
+
+    int finalLen = 0;
+    ok = ok && EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char*>(plaintext.data()) + outLen, &finalLen);
+
+    EVP_CIPHER_CTX_free(ctx);
+    if (!ok) return {};
+
+    return plaintext;
+}
+
 // ── IKvModule operations ─────────────────────────────────────────────────────
 
 void KvPlugin::set(const QString& ns, const QString& key, const QString& value) {
-    backendForNamespace(ns.toStdString()).set(key.toStdString(), value.toStdString());
+    QString storeValue = value;
+    auto it = encryption_keys_.find(ns);
+    if (it != encryption_keys_.end()) {
+        QByteArray encrypted = encrypt(it.value(), value.toUtf8());
+        if (encrypted.isEmpty()) {
+            qWarning() << "KvPlugin::set: encryption failed for" << ns << key;
+            return;
+        }
+        storeValue = QString::fromLatin1(encrypted);
+    }
+    backendForNamespace(ns.toStdString()).set(key.toStdString(), storeValue.toStdString());
     emit changed(ns, key);
 }
 
@@ -82,6 +176,13 @@ QString KvPlugin::get(const QString& ns, const QString& key) {
     auto result = backendForNamespace(ns.toStdString()).get(key.toStdString());
     if (!result)
         return {};
+    auto it = encryption_keys_.find(ns);
+    if (it != encryption_keys_.end()) {
+        QByteArray decrypted = decrypt(it.value(), QByteArray::fromStdString(*result));
+        if (decrypted.isEmpty())
+            return {};
+        return QString::fromUtf8(decrypted);
+    }
     return QString::fromStdString(*result);
 }
 

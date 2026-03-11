@@ -75,3 +75,27 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(backend_conformance_test)
+
+# ── Encryption tests ─────────────────────────────────────────────────────────
+find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(OpenSSL REQUIRED)
+
+set(CMAKE_AUTOMOC ON)
+
+add_executable(encryption_test
+    EncryptionTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/kv_plugin.cpp
+    ${BACKEND_SOURCES}
+)
+
+target_include_directories(encryption_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
+
+target_link_libraries(encryption_test
+    ${BACKEND_LIBS}
+    Qt6::Core
+    OpenSSL::Crypto
+)
+
+gtest_discover_tests(encryption_test)

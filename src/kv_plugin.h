@@ -3,6 +3,9 @@
 #include "i_kv_module.h"
 #include "backends/KvBackend.h"
 
+#include <QByteArray>
+#include <QMap>
+
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -46,6 +49,9 @@ public:
 
     void setDataDir(const QString &path);
 
+    // ── Encryption ──────────────────────────────────────────────────────────
+    Q_INVOKABLE void setEncryptionKey(const QString& ns, const QString& keyHex);
+
 signals:
     void changed(const QString& ns, const QString& key);
 
@@ -56,6 +62,11 @@ private:
     std::mutex backends_mutex_;
     std::unordered_map<std::string, std::unique_ptr<KvBackend>> backends_;
     bool use_file_backend_ = false;
+
+    // ── Encryption ──────────────────────────────────────────────────────────
+    QMap<QString, QByteArray> encryption_keys_; // ns -> 32-byte key
+    QByteArray encrypt(const QByteArray& key, const QByteArray& plaintext) const;
+    QByteArray decrypt(const QByteArray& key, const QByteArray& ciphertext) const;
 
 #ifdef LOGOS_CORE_AVAILABLE
     LogosAPIClient* m_client = nullptr;
