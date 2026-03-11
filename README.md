@@ -51,17 +51,40 @@ kv_module.get("myapp", "secret");                     // returns "sensitive data
 - Namespaces without a key continue to work as plaintext (backward compatible)
 - Stored format: `base64(nonce[12] + ciphertext + tag[16])`
 
-## Building with Nix
+## Installation
+
+### From GitHub Releases
+
+Download the pre-built `.so` from [Releases](https://github.com/jimmy-claw/logos-kv-module/releases):
+
+```bash
+curl -LO https://github.com/jimmy-claw/logos-kv-module/releases/latest/download/kv_module_plugin-linux-x86_64.so
+cp kv_module_plugin-linux-x86_64.so /path/to/logoscore/modules/kv_module_plugin.so
+```
+
+### From Nix
 
 Requires [Nix](https://nixos.org/) with flakes enabled.
 
 ```bash
-nix build       # build the module (plugin + headers)
-nix build .#test  # build and run conformance tests
-nix develop     # enter a dev shell with all dependencies
+nix build                  # build via logos-module-builder (plugin + headers)
+nix build .#standalone     # build .so only (no logos-module-builder dependency)
+nix build .#test           # build and run conformance tests
+nix develop                # enter a dev shell with all dependencies
 ```
 
-The Nix build uses [logos-module-builder](https://github.com/logos-co/logos-module-builder) and provides Qt6, logos-cpp-sdk, and logos-liblogos automatically.
+The `.so` is at `result/lib/kv_module_plugin.so`.
+
+### From source
+
+```bash
+sudo apt-get install cmake qt6-base-dev qt6-declarative-dev libssl-dev
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+# Output: build/kv_module_plugin.so
+```
+
+The default Nix build uses [logos-module-builder](https://github.com/logos-co/logos-module-builder) and provides Qt6, logos-cpp-sdk, and logos-liblogos automatically. The `standalone` output builds with cmake directly.
 
 ## Testing
 
