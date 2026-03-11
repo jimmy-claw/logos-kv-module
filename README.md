@@ -29,11 +29,29 @@ QString  listAll(QString ns);                 // list with empty prefix
 void     clear(QString ns);
 QString  version();
 
+// Search
+QString  scan(QString ns, QString pattern);           // returns JSON array of matching keys
+QString  searchValues(QString ns, QString substring); // returns JSON array of {key, value}
+
 // Optional per-namespace encryption (AES-256-GCM)
 void     setEncryptionKey(QString ns, QString keyHex);
 ```
 
 Namespacing ensures modules can't read each other's data.
+
+### Search
+
+`scan(ns, pattern)` finds keys containing `pattern` as a substring. Empty pattern returns all keys.
+
+`searchValues(ns, substring)` finds entries where the value contains `substring` (case-insensitive). Returns a JSON array of `{"key": "...", "value": "..."}` objects.
+
+```cpp
+kv_module.scan("myapp", "user");
+// ["user:1", "user:2", "admin_user"]
+
+kv_module.searchValues("myapp", "meeting");
+// [{"key":"event:1","value":"Team Meeting at 10am"}, ...]
+```
 
 ### Encryption
 

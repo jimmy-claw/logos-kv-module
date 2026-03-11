@@ -47,6 +47,10 @@ public:
     Q_INVOKABLE QString listAll(const QString& ns) override;
     Q_INVOKABLE void clear(const QString& ns) override;
 
+    // Search operations
+    Q_INVOKABLE QString scan(const QString& ns, const QString& pattern) override;
+    Q_INVOKABLE QString searchValues(const QString& ns, const QString& substring) override;
+
     void setDataDir(const QString &path);
 
     // ── Encryption ──────────────────────────────────────────────────────────
