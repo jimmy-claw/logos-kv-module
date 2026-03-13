@@ -47,7 +47,7 @@ public:
     Q_INVOKABLE QString listAll(const QString& ns) override;
     Q_INVOKABLE void clear(const QString& ns) override;
 
-    void setDataDir(const QString &path);
+    Q_INVOKABLE void setDataDir(const QString &path);
 
     // ── Encryption ──────────────────────────────────────────────────────────
     Q_INVOKABLE void setEncryptionKey(const QString& ns, const QString& keyHex);
