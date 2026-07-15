@@ -8,8 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(LogosModule REQUIRED)
 
 logos_module(kv_module
-    IMPL_HEADER src/kv_impl.h
-    IMPL_SOURCE src/kv_impl.cpp
+    IMPL_HEADER src/kv_module_impl.h
+    IMPL_SOURCE src/kv_module_impl.cpp
     SOURCES
         src/backends/KvBackend.h
         src/backends/MemoryBackend.h
