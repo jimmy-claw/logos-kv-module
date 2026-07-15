@@ -25,7 +25,7 @@ std::string KvImpl::getDataDir() const {
 
 // ── Backend management ───────────────────────────────────────────────────────
 
-KvBackend &KvImpl::backendForNamespace(const std::string &ns) {
+KvBackend &KvImpl::backendForNamespace(const std::string &ns) const {
     std::lock_guard lock(backends_mutex_);
     auto it = backends_.find(ns);
     if (it != backends_.end())

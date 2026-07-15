@@ -40,11 +40,11 @@ public:
     void setEncryptionKey(const std::string& ns, const std::string& keyHex);
 
 private:
-    KvBackend &backendForNamespace(const std::string &ns);
+    KvBackend &backendForNamespace(const std::string &ns) const;
 
     std::string data_dir_;
     mutable std::mutex backends_mutex_;
-    std::unordered_map<std::string, std::unique_ptr<KvBackend>> backends_;
+    mutable std::unordered_map<std::string, std::unique_ptr<KvBackend>> backends_;
     bool use_file_backend_ = false;
 
     // ── Encryption ───────────────────────────────────────────────────────────
