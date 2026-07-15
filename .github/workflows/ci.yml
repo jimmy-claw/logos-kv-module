@@ -13,24 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v24
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
         with:
-          accept-flake-config: true
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
-      - name: Override logos-module-builder input
-        run: |
-          nix build --override-input logos-module-builder github:logos-co/logos-module-builder .#kv_module --print-build-logs
+      - name: Build kv_module
+        run: nix build -L --override-input logos-module-builder github:logos-co/logos-module-builder .
 
-  flake-check:
-    name: Flake metadata check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: cachix/install-nix-action@v24
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
         with:
-          accept-flake-config: true
-
-      - name: Check flake eval
-        run: |
-          nix flake --override-input logos-module-builder github:logos-co/logos-module-builder metadata --json
+          name: kv-module-plugin
+          path: result/
