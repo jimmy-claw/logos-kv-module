@@ -10,6 +10,7 @@
   outputs = inputs@{ logos-module-builder, ... }:
     logos-module-builder.lib.mkLogosModule {
       src = ./.;
+      configFile = ./metadata.json;
       flakeInputs = inputs;
     };
 }
