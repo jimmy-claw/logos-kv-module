@@ -9,23 +9,23 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-KvImpl::KvImpl() {}
-KvImpl::~KvImpl() = default;
+KvModuleImpl::KvModuleImpl() {}
+KvModuleImpl::~KvModuleImpl() = default;
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-void KvImpl::setDataDir(const std::string &path) {
+void KvModuleImpl::setDataDir(const std::string &path) {
     data_dir_ = path;
     use_file_backend_ = !path.empty();
 }
 
-std::string KvImpl::getDataDir() const {
+std::string KvModuleImpl::getDataDir() const {
     return data_dir_;
 }
 
 // ── Backend management ───────────────────────────────────────────────────────
 
-KvBackend &KvImpl::backendForNamespace(const std::string &ns) const {
+KvBackend &KvModuleImpl::backendForNamespace(const std::string &ns) const {
     std::lock_guard lock(backends_mutex_);
     auto it = backends_.find(ns);
     if (it != backends_.end())
@@ -46,20 +46,20 @@ KvBackend &KvImpl::backendForNamespace(const std::string &ns) const {
 
 // ── Encryption ───────────────────────────────────────────────────────────────
 
-void KvImpl::setEncryptionKey(const std::string &ns, const std::string &keyHex) {
+void KvModuleImpl::setEncryptionKey(const std::string &ns, const std::string &keyHex) {
     std::vector<uint8_t> key;
     for (size_t i = 0; i + 1 < keyHex.size(); i += 2) {
         key.push_back(static_cast<uint8_t>(std::stoi(keyHex.substr(i, 2), nullptr, 16)));
     }
     if (key.size() != 32) {
-        std::cerr << "KvImpl::setEncryptionKey: key must be 64 hex chars (32 bytes), got "
+        std::cerr << "KvModuleImpl::setEncryptionKey: key must be 64 hex chars (32 bytes), got "
                   << keyHex.size() << " hex chars" << std::endl;
         return;
     }
     encryption_keys_[ns] = key;
 }
 
-std::vector<uint8_t> KvImpl::encrypt(const std::vector<uint8_t> &key,
+std::vector<uint8_t> KvModuleImpl::encrypt(const std::vector<uint8_t> &key,
                                       const std::vector<uint8_t> &plaintext) const {
     constexpr int NONCE_LEN = 12;
     constexpr int TAG_LEN = 16;
@@ -108,7 +108,7 @@ std::vector<uint8_t> KvImpl::encrypt(const std::vector<uint8_t> &key,
     return std::vector<uint8_t>(b64.begin(), b64.end());
 }
 
-std::vector<uint8_t> KvImpl::decrypt(const std::vector<uint8_t> &key,
+std::vector<uint8_t> KvModuleImpl::decrypt(const std::vector<uint8_t> &key,
                                       const std::vector<uint8_t> &ciphertext) const {
     constexpr int NONCE_LEN = 12;
     constexpr int TAG_LEN = 16;
@@ -171,14 +171,14 @@ std::vector<uint8_t> KvImpl::decrypt(const std::vector<uint8_t> &key,
 
 // ── KV Operations ────────────────────────────────────────────────────────────
 
-void KvImpl::set(const std::string &ns, const std::string &key, const std::string &value) {
+void KvModuleImpl::set(const std::string &ns, const std::string &key, const std::string &value) {
     std::string storeValue = value;
     auto it = encryption_keys_.find(ns);
     if (it != encryption_keys_.end()) {
         auto encrypted = encrypt(it->second,
             std::vector<uint8_t>(value.begin(), value.end()));
         if (encrypted.empty()) {
-            std::cerr << "KvImpl::set: encryption failed for " << ns << "/" << key << std::endl;
+            std::cerr << "KvModuleImpl::set: encryption failed for " << ns << "/" << key << std::endl;
             return;
         }
         storeValue = std::string(encrypted.begin(), encrypted.end());
@@ -186,7 +186,7 @@ void KvImpl::set(const std::string &ns, const std::string &key, const std::strin
     backendForNamespace(ns).set(key, storeValue);
 }
 
-std::string KvImpl::get(const std::string &ns, const std::string &key) const {
+std::string KvModuleImpl::get(const std::string &ns, const std::string &key) const {
     auto result = backendForNamespace(ns).get(key);
     if (!result)
         return {};
@@ -201,11 +201,11 @@ std::string KvImpl::get(const std::string &ns, const std::string &key) const {
     return *result;
 }
 
-void KvImpl::remove(const std::string &ns, const std::string &key) {
+void KvModuleImpl::remove(const std::string &ns, const std::string &key) {
     backendForNamespace(ns).remove(key);
 }
 
-std::string KvImpl::list(const std::string &ns, const std::string &prefix) const {
+std::string KvModuleImpl::list(const std::string &ns, const std::string &prefix) const {
     auto keys = backendForNamespace(ns).list(prefix);
     std::string result = "[";
     bool first = true;
@@ -220,10 +220,10 @@ std::string KvImpl::list(const std::string &ns, const std::string &prefix) const
     return result;
 }
 
-std::string KvImpl::listAll(const std::string &ns) const {
+std::string KvModuleImpl::listAll(const std::string &ns) const {
     return list(ns, "");
 }
 
-void KvImpl::clear(const std::string &ns) {
+void KvModuleImpl::clear(const std::string &ns) {
     backendForNamespace(ns).clear();
 }

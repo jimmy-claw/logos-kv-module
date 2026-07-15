@@ -12,17 +12,17 @@
 class KvBackend;
 
 /**
- * KvImpl — Universal-pattern core module for key-value storage.
+ * KvModuleImpl — Universal-pattern core module for key-value storage.
  *
  * Pure C++ class — no Qt, no Q_OBJECT, no Q_PLUGIN_METADATA.
  * All public methods are auto-exposed by logos-cpp-generator.
  * Supports swappable backends: memory (default), file-based.
  * Optional backends (rocksdb, sqlite) compiled via feature flags.
  */
-class KvImpl : public LogosModuleContext {
+class KvModuleImpl : public LogosModuleContext {
 public:
-    KvImpl();
-    ~KvImpl() override;
+    KvModuleImpl();
+    ~KvModuleImpl() override;
 
     // ── Configuration ────────────────────────────────────────────────────────
     void setDataDir(const std::string& path);
