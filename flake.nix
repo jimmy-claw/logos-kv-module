@@ -6,7 +6,7 @@
     nixpkgs.follows = "logos-module-builder/nixpkgs";
   };
 
-  outputs = { self, logos-module-builder, nixpkgs, ... }:
+  outputs = { self, logos-module-builder, nixpkgs, ... }@inputs:
     let
       moduleOutputs = logos-module-builder.lib.mkLogosModule {
         src = ./.;
