@@ -1,135 +1,59 @@
-# logos-kv-module
+# kv_module — Key-Value Storage for Logos Core
 
-A local key-value storage module for [Logos Core](https://logos.co), with swappable backends.
+Local key-value storage module with swappable backends (memory, file).
+Migrated to the **universal authoring model** (basecamp 0.2.0 + logos-module-builder 0.2.0).
 
-## The Problem
+## Architecture
 
-Apps built on Logos Core (Scala, Lope, LMAO, etc.) all need local persistence. There's currently no standard solution — every app embeds its own storage, leading to fragmentation and duplicated effort.
+Pure C++ implementation — no Qt, no Q_OBJECT, no Q_PLUGIN_METADATA.
+All public methods are auto-exposed by `logos-cpp-generator`.
 
-## The Solution
-
-A reusable Logos Core module exposing a simple KV interface via QtRO, with pluggable backends:
-
-| Backend | Use case |
-|---|---|
-| **Memory** | Testing, ephemeral state |
-| **File** | Simple JSON, zero native deps |
-| **RocksDB** | Production, high-performance |
-| **SQLite** | Structured queries, familiar |
-
-## Interface
-
-```cpp
-// QtRO interface — accessible from QML and other modules
-void     set(QString ns, QString key, QString value);
-QString  get(QString ns, QString key);
-void     remove(QString ns, QString key);
-QString  list(QString ns, QString prefix);    // returns JSON array
-QString  listAll(QString ns);                 // list with empty prefix
-void     clear(QString ns);
-QString  version();
-
-// Optional per-namespace encryption (AES-256-GCM)
-void     setEncryptionKey(QString ns, QString keyHex);
+```
+src/
+├── kv_impl.h          # KvImpl : LogosModuleContext (universal pattern)
+├── kv_impl.cpp        # Business logic (KV CRUD, encryption, backend mgmt)
+└── backends/          # Swappable storage backends
+    ├── KvBackend.h    # Abstract interface
+    ├── MemoryBackend.h/cpp  # In-memory (default)
+    └── FileBackend.h/cpp    # File-based (when dataDir set)
 ```
 
-Namespacing ensures modules can't read each other's data.
-
-### Encryption
-
-Optional AES-256-GCM encryption can be enabled per namespace. When a key is set, `set()` encrypts values before storing and `get()` decrypts them transparently.
-
-```cpp
-// keyHex: 64 hex characters representing a 32-byte AES-256 key
-kv_module.setEncryptionKey("myapp", "0123456789abcdef...");
-kv_module.set("myapp", "secret", "sensitive data");  // stored encrypted
-kv_module.get("myapp", "secret");                     // returns "sensitive data"
-```
-
-- Keys are held in memory only — never persisted by kv_module
-- Caller is responsible for key derivation (e.g. PBKDF2 from user password)
-- Namespaces without a key continue to work as plaintext (backward compatible)
-- Stored format: `base64(nonce[12] + ciphertext + tag[16])`
-
-## Installation
-
-### From GitHub Releases
-
-Download the pre-built `.so` from [Releases](https://github.com/jimmy-claw/logos-kv-module/releases):
+## Build
 
 ```bash
-curl -LO https://github.com/jimmy-claw/logos-kv-module/releases/latest/download/kv_module_plugin-linux-x86_64.so
-cp kv_module_plugin-linux-x86_64.so /path/to/logoscore/modules/kv_module_plugin.so
+# Nix build (only supported method)
+nix build --override-input logos-module-builder github:logos-co/logos-module-builder .#kv_module
+
+# Flake check
+nix flake --override-input logos-module-builder github:logos-co/logos-module-builder metadata --json
 ```
 
-### From Nix
+## API
 
-Requires [Nix](https://nixos.org/) with flakes enabled.
+| Method | Description |
+|--------|-------------|
+| `set(ns, key, value)` | Store a value in namespace |
+| `get(ns, key)` | Retrieve a value (returns empty string if not found) |
+| `remove(ns, key)` | Delete a key from namespace |
+| `list(ns, prefix)` | List keys with prefix (returns JSON array) |
+| `listAll(ns)` | List all keys in namespace (returns JSON array) |
+| `clear(ns)` | Clear all keys in namespace |
+| `setDataDir(path)` | Set data directory for file backend |
+| `setEncryptionKey(ns, keyHex)` | Set AES-256-GCM encryption key for namespace |
 
-```bash
-nix build                  # build via logos-module-builder (plugin + headers)
-nix build .#standalone     # build .so only (no logos-module-builder dependency)
-nix build .#test           # build and run conformance tests
-nix develop                # enter a dev shell with all dependencies
-```
+## Encryption
 
-The `.so` is at `result/lib/kv_module_plugin.so`.
+Optional per-namespace AES-256-GCM encryption. Set a 32-byte key (64 hex chars) via `setEncryptionKey()`. All subsequent `set()`/`get()` calls for that namespace are transparently encrypted/decrypted.
 
-### From source
+## Backends
 
-```bash
-sudo apt-get install cmake qt6-base-dev qt6-declarative-dev libssl-dev
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
-# Output: build/kv_module_plugin.so
-```
+- **Memory** (default): In-memory storage, no persistence
+- **File**: JSON file per namespace (activated by `setDataDir()`)
 
-The default Nix build uses [logos-module-builder](https://github.com/logos-co/logos-module-builder) and provides Qt6, logos-cpp-sdk, and logos-liblogos automatically. The `standalone` output builds with cmake directly.
+## Migration Notes (v0.1 → v0.2)
 
-## Testing
-
-### Conformance Tests (CI)
-
-Unit-level backend conformance tests run on every push:
-
-```bash
-nix build .#test
-```
-
-### E2E Tests via logoscore
-
-Full integration tests using the `logoscore` headless Logos Core harness — exercises the complete stack: Qt plugin loader → `logos_host` subprocess → QtRO → kv_module.
-
-```bash
-nix build && bash scripts/e2e-logoscore.sh
-```
-
-Tests: `version()`, `set`/`get`/`list`/`remove`/`clear`, and namespace isolation. Also runs in CI via `nix build .#test`.
-
-### Example logoscore calls
-
-```bash
-LOGOSCORE=path/to/logoscore
-MODULES=path/to/result/lib
-
-QT_QPA_PLATFORM=offscreen    --modules-dir  --load-modules kv_module   --call 'kv_module.set(myapp, theme, dark)'
-
-QT_QPA_PLATFORM=offscreen    --modules-dir  --load-modules kv_module   --call 'kv_module.get(myapp, theme)'
-```
-
-## Status
-
-✅ v0.1 complete — production-ready backends, Logos Core integrated, CI passing.
-
-## Who needs this
-
-- [Scala](https://github.com/jimmy-claw/scala) — calendar + event storage
-- [Lope](https://github.com/jimmy-claw/lope) — notes + attachment index
-- [LMAO](https://github.com/jimmy-claw/lmao) — agent session state
-- Any future Logos Core app
-
-## See also
-
-- [logos-co/ideas#20](https://github.com/logos-co/ideas/issues/20) — original proposal
-- [logos-co/logos-app](https://github.com/logos-co/logos-app) — Logos Core
-- [logos-module-builder](https://github.com/logos-co/logos-module-builder)
+- Removed Qt dependency — pure C++ implementation
+- Removed hand-written plugin glue (`kv_plugin.cpp/h`, `plugin.cpp`, `i_kv_module.h`)
+- Replaced manual CMake with `LogosModule.cmake` macro
+- Replaced `module.yaml` with `metadata.json` (universal interface)
+- Base64 encoding/decoding now inline (was using Qt QByteArray)

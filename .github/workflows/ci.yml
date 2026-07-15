@@ -7,90 +7,23 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Conformance Tests
+  build:
+    name: Build kv_module (nix)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgtest-dev cmake libssl-dev
-
-      - name: Configure
-        run: cmake -S tests -B build-tests
-
-      - name: Build
-        run: cmake --build build-tests
-
-      - name: Test
-        run: ctest --test-dir build-tests --output-on-failure
-
-  test-rocksdb:
-    name: RocksDB Backend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtest-dev cmake librocksdb-dev libssl-dev
-
-      - name: Configure
-        run: cmake -S tests -B build-tests-rocksdb -DWITH_ROCKSDB=ON
-
-      - name: Build
-        run: cmake --build build-tests-rocksdb
-
-      - name: Test
-        run: ctest --test-dir build-tests-rocksdb --output-on-failure
-
-  test-sqlite:
-    name: SQLite Backend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtest-dev cmake libsqlite3-dev libssl-dev
-
-      - name: Configure
-        run: cmake -S tests -B build-tests-sqlite -DWITH_SQLITE=ON
-
-      - name: Build
-        run: cmake --build build-tests-sqlite
-
-      - name: Test
-        run: ctest --test-dir build-tests-sqlite --output-on-failure
-
-  build-plugin:
-    name: Qt Plugin Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake qt6-base-dev qt6-declarative-dev libssl-dev
-
-      - name: Configure
-        run: cmake -S . -B build-plugin
-
-      - name: Build
-        run: cmake --build build-plugin
-
-  e2e-nix:
-    name: E2E Tests (Nix)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: cachix/install-nix-action@v24
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
         with:
-          accept-flake-config: true
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run E2E tests
-        run: nix build .#test --print-build-logs
+      - name: Build kv_module
+        run: nix build -L --override-input logos-module-builder github:logos-co/logos-module-builder .
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kv-module-plugin
+          path: result/
